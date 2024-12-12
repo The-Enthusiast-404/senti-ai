@@ -1,35 +1,17 @@
-import Versions from './components/Versions'
-import electronLogo from './assets/electron.svg'
+import Layout from './components/layout/Layout'
 
 function App(): JSX.Element {
-  const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
-
   return (
-    <>
-      <div className="flex min-h-screen items-center justify-center text-black bg-gray-100">Hi</div>
-      {/* <img alt="logo" className="logo" src={electronLogo} />
-      <div className="creator">Powered by electron-vite</div>
-      <div className="text">
-        Build an Electron app with <span className="react">React</span>
-        &nbsp;and <span className="ts">TypeScript</span>
+    <Layout>
+      <div className="flex flex-col items-center justify-center h-full">
+        <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">
+          Welcome to Senti AI
+        </h2>
+        <p className="mt-2 text-gray-600 dark:text-gray-300">
+          Start a conversation with your local LLM
+        </p>
       </div>
-      <p className="tip">
-        Please try pressing <code>F12</code> to open the devTool
-      </p>
-      <div className="actions">
-        <div className="action">
-          <a href="https://electron-vite.org/" target="_blank" rel="noreferrer">
-            Documentation
-          </a>
-        </div>
-        <div className="action">
-          <a target="_blank" rel="noreferrer" onClick={ipcHandle}>
-            Send IPC
-          </a>
-        </div>
-      </div>
-      <Versions></Versions> */}
-    </>
+    </Layout>
   )
 }
 
