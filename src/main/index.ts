@@ -2,6 +2,8 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { setupChatHandlers } from './api/chat'
+import { setupModelHandlers } from './api/models'
 
 function createWindow(): void {
   // Create the browser window.
@@ -52,6 +54,8 @@ app.whenReady().then(() => {
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
+  setupChatHandlers()
+  setupModelHandlers()
   createWindow()
 
   app.on('activate', function () {

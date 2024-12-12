@@ -22,7 +22,9 @@
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
-    "@electron-toolkit/utils": "^3.0.0"
+    "@electron-toolkit/utils": "^3.0.0",
+    "ai": "^4.0.16",
+    "react-markdown": "^9.0.1"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^2.0.0",
