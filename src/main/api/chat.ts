@@ -26,7 +26,10 @@ export function setupChatHandlers(): void {
 
       while (true) {
         const { done, value } = await reader!.read()
-        if (done) break
+        if (done) {
+          _event.sender.send('chat:stream-end')
+          break
+        }
 
         const chunk = new TextDecoder().decode(value)
         const lines = chunk.split('\n').filter(Boolean)

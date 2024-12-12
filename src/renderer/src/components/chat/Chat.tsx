@@ -28,21 +28,11 @@ export default function Chat({ model, setModel, conversation }: ChatProps): JSX.
     }
   }, [conversation])
 
-  // Enhanced auto-scroll effect
-  const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
-  // Scroll on messages change
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
-
-  // Set up streaming listener with scroll
+  // Set up streaming listener
   useEffect(() => {
     let currentMessage = ''
 
-    const handleStream = (content: string) => {
+    const handleStream = async (content: string) => {
       currentMessage += content
       setMessages((prev) => {
         const newMessages = [...prev]
@@ -55,7 +45,6 @@ export default function Chat({ model, setModel, conversation }: ChatProps): JSX.
             createdAt: Date.now()
           }
         }
-        // Only scroll if content actually changed
         if (lastMessageRef.current !== currentMessage) {
           lastMessageRef.current = currentMessage
           setTimeout(scrollToBottom, 0)
@@ -64,11 +53,45 @@ export default function Chat({ model, setModel, conversation }: ChatProps): JSX.
       })
     }
 
+    const handleStreamEnd = async () => {
+      if (conversation && currentMessage) {
+        // Save the final assistant message to the database
+        const savedMessage = await window.api.conversations.addMessage({
+          conversationId: conversation.id,
+          role: 'assistant',
+          content: currentMessage
+        })
+
+        // Update the messages list with the saved message
+        setMessages((prev) => {
+          const newMessages = [...prev]
+          if (newMessages.length > 0) {
+            newMessages[newMessages.length - 1] = savedMessage
+          }
+          return newMessages
+        })
+      }
+      currentMessage = ''
+    }
+
     window.api.chat.onStream(handleStream)
+    window.api.chat.onStreamEnd?.(handleStreamEnd)
+
     return () => {
       window.api.chat.offStream()
+      window.api.chat.offStreamEnd?.()
     }
-  }, [])
+  }, [conversation])
+
+  // Enhanced auto-scroll effect
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  // Scroll on messages change
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -97,7 +120,7 @@ export default function Chat({ model, setModel, conversation }: ChatProps): JSX.
       ])
 
       await window.api.chat.completion({
-        messages: messages.map((msg) => ({
+        messages: [...messages, userMessage].map((msg) => ({
           role: msg.role,
           content: msg.content
         })),

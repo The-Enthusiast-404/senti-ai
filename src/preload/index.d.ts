@@ -10,6 +10,8 @@ declare global {
         completion: (params: { messages: any[]; model: string }) => Promise<string>
         onStream: (callback: (content: string) => void) => void
         offStream: () => void
+        onStreamEnd?: (callback: () => void) => void
+        offStreamEnd?: () => void
       }
       models: {
         list: () => Promise<{ models: OllamaModel[] }>

@@ -10,6 +10,12 @@ const api = {
     },
     offStream: () => {
       ipcRenderer.removeAllListeners('chat:stream')
+    },
+    onStreamEnd: (callback: () => void) => {
+      ipcRenderer.on('chat:stream-end', () => callback())
+    },
+    offStreamEnd: () => {
+      ipcRenderer.removeAllListeners('chat:stream-end')
     }
   },
   models: {
