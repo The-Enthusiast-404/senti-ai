@@ -51,11 +51,13 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
-
+  console.log('Setting up chat handlers...')
   setupChatHandlers()
   setupModelHandlers()
+
+  // Test IPC
+  ipcMain.on('test', () => console.log('IPC test received'))
+
   createWindow()
 
   app.on('activate', function () {
