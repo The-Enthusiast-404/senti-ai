@@ -7,6 +7,8 @@ declare global {
     api: {
       chat: {
         completion: (params: { messages: any[]; model: string }) => Promise<string>
+        onStream: (callback: (content: string) => void) => void
+        offStream: () => void
       }
       models: {
         list: () => Promise<{ models: OllamaModel[] }>

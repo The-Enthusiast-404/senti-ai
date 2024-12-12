@@ -76,9 +76,9 @@ $ npm run build:linux
 
 ### Phase 1 - Core Features (Q2 2024)
 
-- [ ] Basic chat interface with Vercel AI SDK
-- [ ] Ollama integration
-- [ ] Multiple model support
+- [x] Basic chat interface with Vercel AI SDK
+- [x] Ollama integration
+- [x] Multiple model support
 - [ ] Streaming responses
 - [ ] Conversation history
 - [ ] Settings panel

@@ -4,7 +4,13 @@ import { electronAPI } from '@electron-toolkit/preload'
 // Custom APIs for renderer
 const api = {
   chat: {
-    completion: (params: any) => ipcRenderer.invoke('chat:completion', params)
+    completion: (params: any) => ipcRenderer.invoke('chat:completion', params),
+    onStream: (callback: (content: string) => void) => {
+      ipcRenderer.on('chat:stream', (_event, content) => callback(content))
+    },
+    offStream: () => {
+      ipcRenderer.removeAllListeners('chat:stream')
+    }
   },
   models: {
     list: () => ipcRenderer.invoke('models:list')

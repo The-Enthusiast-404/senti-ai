@@ -13,7 +13,7 @@ export function setupChatHandlers(): void {
         body: JSON.stringify({
           model,
           messages,
-          stream: false
+          stream: true
         })
       })
 
@@ -21,14 +21,26 @@ export function setupChatHandlers(): void {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const data = await response.json()
-      console.log('Response from Ollama:', data)
+      const reader = response.body?.getReader()
+      let responseText = ''
 
-      if (!data.message) {
-        throw new Error('No message in response')
+      while (true) {
+        const { done, value } = await reader!.read()
+        if (done) break
+
+        const chunk = new TextDecoder().decode(value)
+        const lines = chunk.split('\n').filter(Boolean)
+
+        for (const line of lines) {
+          const json = JSON.parse(line)
+          if (json.message?.content) {
+            responseText += json.message.content
+            _event.sender.send('chat:stream', json.message.content)
+          }
+        }
       }
 
-      return data.message.content
+      return responseText
     } catch (error) {
       console.error('Chat completion error:', error)
       throw error
