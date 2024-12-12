@@ -14,6 +14,14 @@ const api = {
   },
   models: {
     list: () => ipcRenderer.invoke('models:list')
+  },
+  conversations: {
+    create: (params) => ipcRenderer.invoke('conversations:create', params),
+    list: () => ipcRenderer.invoke('conversations:list'),
+    get: (id) => ipcRenderer.invoke('conversations:get', id),
+    delete: (id) => ipcRenderer.invoke('conversations:delete', id),
+    messages: (conversationId) => ipcRenderer.invoke('conversations:messages', conversationId),
+    addMessage: (params) => ipcRenderer.invoke('conversations:addMessage', params)
   }
 }
 

@@ -4,6 +4,9 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { setupChatHandlers } from './api/chat'
 import { setupModelHandlers } from './api/models'
+import { initializeDatabase } from './database/schema'
+import { ConversationsDB } from './database/conversations'
+import { setupConversationHandlers } from './api/conversations'
 
 function createWindow(): void {
   // Create the browser window.
@@ -51,7 +54,12 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  console.log('Setting up chat handlers...')
+  // Initialize database
+  const db = initializeDatabase()
+  const conversationsDB = new ConversationsDB(db)
+
+  // Setup handlers
+  setupConversationHandlers(conversationsDB)
   setupChatHandlers()
   setupModelHandlers()
 

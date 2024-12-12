@@ -3,16 +3,37 @@ import Layout from './components/layout/Layout'
 import ModelSelector from './components/models/ModelSelector'
 import Chat from './components/chat/Chat'
 import type { OllamaModel } from './types/ollama'
+import type { Conversation } from '../../shared/types'
 
 function App(): JSX.Element {
   const [selectedModel, setSelectedModel] = useState<OllamaModel | null>(null)
+  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null)
+
+  const handleModelSelect = async (model: OllamaModel) => {
+    setSelectedModel(model)
+    // Create a new conversation when model is selected
+    const newConversation = await window.api.conversations.create({
+      title: 'New Chat',
+      model: model.name
+    })
+    setCurrentConversation(newConversation)
+  }
+
+  const handleConversationSelect = (conversation: Conversation) => {
+    setCurrentConversation(conversation)
+    setSelectedModel({ name: conversation.model } as OllamaModel)
+  }
 
   return (
-    <Layout>
+    <Layout onSelectConversation={handleConversationSelect}>
       {!selectedModel ? (
-        <ModelSelector onModelSelect={setSelectedModel} />
+        <ModelSelector onModelSelect={handleModelSelect} />
       ) : (
-        <Chat model={selectedModel} setModel={setSelectedModel} />
+        <Chat
+          model={selectedModel}
+          setModel={setSelectedModel}
+          conversation={currentConversation}
+        />
       )}
     </Layout>
   )

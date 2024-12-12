@@ -4,32 +4,29 @@ import type { OllamaModel } from '../../types/ollama'
 import ModelDropdown from '../models/ModelDropdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { Conversation, Message as MessageType } from 'src/shared/types'
 
-interface Message {
-  role: 'user' | 'assistant'
-  content: string
-}
-
-// Define CodeProps manually
-interface CodeProps {
-  inline?: boolean
-  className?: string
-  children: React.ReactNode
-  [key: string]: any
-}
-
-export default function Chat({
-  model,
-  setModel
-}: {
+interface ChatProps {
   model: OllamaModel
   setModel: (model: OllamaModel) => void
-}): JSX.Element {
-  const [messages, setMessages] = useState<Message[]>([])
+  conversation: Conversation | null
+}
+
+export default function Chat({ model, setModel, conversation }: ChatProps): JSX.Element {
+  const [messages, setMessages] = useState<MessageType[]>([])
   const [input, setInput] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const lastMessageRef = useRef<string>('')
+
+  // Load messages when conversation changes
+  useEffect(() => {
+    if (conversation) {
+      window.api.conversations.messages(conversation.id).then(setMessages)
+    } else {
+      setMessages([])
+    }
+  }, [conversation])
 
   // Enhanced auto-scroll effect
   const scrollToBottom = () => {
@@ -49,10 +46,13 @@ export default function Chat({
       currentMessage += content
       setMessages((prev) => {
         const newMessages = [...prev]
-        if (newMessages.length > 0) {
+        if (newMessages.length > 0 && conversation) {
           newMessages[newMessages.length - 1] = {
+            id: 'streaming',
+            conversationId: conversation.id,
             role: 'assistant',
-            content: currentMessage
+            content: currentMessage,
+            createdAt: Date.now()
           }
         }
         // Only scroll if content actually changed
@@ -72,19 +72,35 @@ export default function Chat({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || isGenerating) return
+    if (!input.trim() || isGenerating || !conversation) return
 
-    const userMessage: Message = { role: 'user', content: input }
+    const userMessage = await window.api.conversations.addMessage({
+      conversationId: conversation.id,
+      role: 'user',
+      content: input
+    })
+
     setMessages((prev) => [...prev, userMessage])
     setInput('')
     setIsGenerating(true)
 
     try {
-      // Add an empty assistant message that will be updated during streaming
-      setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: 'temp',
+          conversationId: conversation.id,
+          role: 'assistant',
+          content: '',
+          createdAt: Date.now()
+        }
+      ])
 
       await window.api.chat.completion({
-        messages: [...messages, userMessage],
+        messages: messages.map((msg) => ({
+          role: msg.role,
+          content: msg.content
+        })),
         model: model.name
       })
     } catch (error) {
