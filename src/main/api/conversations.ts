@@ -25,4 +25,8 @@ export function setupConversationHandlers(db: ConversationsDB): void {
   ipcMain.handle('conversations:addMessage', async (_event, { conversationId, role, content }) => {
     return db.addMessage(conversationId, role, content)
   })
+
+  ipcMain.handle('conversations:updateTitle', async (_event, { id, title }) => {
+    db.updateTitle(id, title)
+  })
 }

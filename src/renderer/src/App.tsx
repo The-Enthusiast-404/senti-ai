@@ -11,12 +11,12 @@ function App(): JSX.Element {
 
   const handleModelSelect = async (model: OllamaModel) => {
     setSelectedModel(model)
-    // Create a new conversation when model is selected
     const newConversation = await window.api.conversations.create({
       title: 'New Chat',
       model: model.name
     })
     setCurrentConversation(newConversation)
+    window.api.conversations.list()
   }
 
   const handleConversationSelect = (conversation: Conversation) => {

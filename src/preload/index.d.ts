@@ -27,6 +27,7 @@ declare global {
           role: 'user' | 'assistant'
           content: string
         }) => Promise<Message>
+        updateTitle: (id: string, title: string) => Promise<void>
       }
     }
   }

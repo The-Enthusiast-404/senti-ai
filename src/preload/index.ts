@@ -27,7 +27,9 @@ const api = {
     get: (id) => ipcRenderer.invoke('conversations:get', id),
     delete: (id) => ipcRenderer.invoke('conversations:delete', id),
     messages: (conversationId) => ipcRenderer.invoke('conversations:messages', conversationId),
-    addMessage: (params) => ipcRenderer.invoke('conversations:addMessage', params)
+    addMessage: (params) => ipcRenderer.invoke('conversations:addMessage', params),
+    updateTitle: (id: string, title: string) =>
+      ipcRenderer.invoke('conversations:updateTitle', { id, title })
   }
 }
 

@@ -85,4 +85,8 @@ export class ConversationsDB {
   deleteConversation(id: string): void {
     this.db.prepare('DELETE FROM conversations WHERE id = ?').run(id)
   }
+
+  updateTitle(id: string, title: string): void {
+    this.db.prepare('UPDATE conversations SET title = ? WHERE id = ?').run(title, id)
+  }
 }

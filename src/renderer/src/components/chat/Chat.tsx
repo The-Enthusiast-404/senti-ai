@@ -107,6 +107,11 @@ export default function Chat({ model, setModel, conversation }: ChatProps): JSX.
     setInput('')
     setIsGenerating(true)
 
+    // Auto-name the conversation with the first user message
+    if (messages.length === 0) {
+      await window.api.conversations.updateTitle(conversation.id, input)
+    }
+
     try {
       setMessages((prev) => [
         ...prev,

@@ -12,6 +12,11 @@ export default function ConversationList({
     loadConversations()
   }, [])
 
+  useEffect(() => {
+    const interval = setInterval(loadConversations, 1000) // Poll every second
+    return () => clearInterval(interval)
+  }, [])
+
   const loadConversations = async () => {
     const list = await window.api.conversations.list()
     setConversations(list)
