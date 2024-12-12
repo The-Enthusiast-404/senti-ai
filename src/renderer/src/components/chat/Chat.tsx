@@ -2,10 +2,20 @@ import { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import type { OllamaModel } from '../../types/ollama'
 import ModelDropdown from '../models/ModelDropdown'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
+}
+
+// Define CodeProps manually
+interface CodeProps {
+  inline?: boolean
+  className?: string
+  children: React.ReactNode
+  [key: string]: any
 }
 
 export default function Chat({
@@ -84,6 +94,31 @@ export default function Chat({
     }
   }
 
+  const customComponents = {
+    code({ className, children }) {
+      const language = className ? className.replace('language-', '') : ''
+      const isInline = !className
+
+      return isInline ? (
+        <code className="px-1.5 py-0.5 rounded-md bg-gray-700/50 text-sm">{children}</code>
+      ) : (
+        <div className="relative my-4 rounded-lg overflow-hidden">
+          <SyntaxHighlighter
+            language={language}
+            style={vscDarkPlus}
+            customStyle={{
+              margin: 0,
+              borderRadius: '0.5rem',
+              background: '#1E1E1E'
+            }}
+          >
+            {String(children).replace(/\n$/, '')}
+          </SyntaxHighlighter>
+        </div>
+      )
+    }
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b dark:border-gray-700">
@@ -97,11 +132,11 @@ export default function Chat({
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[70%] rounded-lg p-4 ${
-                message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700'
+              className={`max-w-[80%] rounded-lg p-4 ${
+                message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-800'
               }`}
             >
-              <ReactMarkdown>{message.content}</ReactMarkdown>
+              <ReactMarkdown components={customComponents}>{message.content}</ReactMarkdown>
             </div>
           </div>
         ))}

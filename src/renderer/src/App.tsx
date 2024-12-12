@@ -12,7 +12,7 @@ function App(): JSX.Element {
       {!selectedModel ? (
         <ModelSelector onModelSelect={setSelectedModel} />
       ) : (
-        <Chat model={selectedModel} />
+        <Chat model={selectedModel} setModel={setSelectedModel} />
       )}
     </Layout>
   )
