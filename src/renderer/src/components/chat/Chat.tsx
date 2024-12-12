@@ -8,22 +8,30 @@ interface Message {
   content: string
 }
 
-export default function Chat({ model }: { model: OllamaModel }): JSX.Element {
+export default function Chat({
+  model,
+  setModel
+}: {
+  model: OllamaModel
+  setModel: (model: OllamaModel) => void
+}): JSX.Element {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const lastMessageRef = useRef<string>('')
 
-  // Auto-scroll effect
+  // Enhanced auto-scroll effect
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
+  // Scroll on messages change
   useEffect(() => {
     scrollToBottom()
   }, [messages])
 
-  // Set up streaming listener
+  // Set up streaming listener with scroll
   useEffect(() => {
     let currentMessage = ''
 
@@ -36,6 +44,11 @@ export default function Chat({ model }: { model: OllamaModel }): JSX.Element {
             role: 'assistant',
             content: currentMessage
           }
+        }
+        // Only scroll if content actually changed
+        if (lastMessageRef.current !== currentMessage) {
+          lastMessageRef.current = currentMessage
+          setTimeout(scrollToBottom, 0)
         }
         return newMessages
       })
