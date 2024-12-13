@@ -200,6 +200,46 @@ export default function ChatInterface() {
     }
   }
 
+  const handleImageGeneration = async () => {
+    if (!input.trim() || isLoading) return
+
+    setIsLoading(true)
+    try {
+      const response = await window.api.generateImage(input.trim())
+
+      if (response.success && response.data) {
+        const userMessage = {
+          role: 'user' as const,
+          content: `Generate image: ${input.trim()}`,
+          type: 'text' as const
+        }
+
+        const assistantMessage = {
+          role: 'assistant' as const,
+          content: response.data,
+          type: 'image' as const
+        }
+
+        setMessages((prev) => [...prev, userMessage, assistantMessage])
+        setInput('')
+      } else {
+        throw new Error(response.error || 'Failed to generate image')
+      }
+    } catch (err) {
+      console.error('Image generation error:', err)
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Sorry, there was an error generating the image.',
+          type: 'text' as const
+        }
+      ])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="flex h-screen bg-gray-900">
       {/* Chat History Sidebar */}
@@ -371,7 +411,7 @@ export default function ChatInterface() {
               />
               <button
                 type="button"
-                onClick={() => setShowImageUpload(true)}
+                onClick={handleImageGeneration}
                 className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={isLoading}
               >

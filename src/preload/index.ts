@@ -12,7 +12,8 @@ const api = {
   getChatMessages: (chatId: string) => ipcRenderer.invoke('chat:getMessages', chatId),
   deleteChat: (chatId: string) => ipcRenderer.invoke('chat:delete', chatId),
   updateChatTitle: (chatId: string, newTitle: string) =>
-    ipcRenderer.invoke('chat:updateTitle', chatId, newTitle)
+    ipcRenderer.invoke('chat:updateTitle', chatId, newTitle),
+  generateImage: (prompt: string) => ipcRenderer.invoke('image:generate', prompt)
 }
 
 if (process.contextIsolated) {

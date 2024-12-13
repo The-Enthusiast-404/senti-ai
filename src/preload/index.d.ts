@@ -48,6 +48,11 @@ declare global {
         success: boolean
         error?: string
       }>
+      generateImage: (prompt: string) => Promise<{
+        success: boolean
+        data?: string
+        error?: string
+      }>
     }
   }
 }
