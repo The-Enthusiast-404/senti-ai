@@ -7,6 +7,7 @@ export interface ChatMessage {
   chatId: string
   role: 'user' | 'assistant'
   content: string
+  type: 'text' | 'image'
   createdAt: string
 }
 
@@ -39,13 +40,14 @@ export class DatabaseService {
       )
     `)
 
-    // Create messages table
+    // Create messages table with new type column
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS messages (
         id TEXT PRIMARY KEY,
         chatId TEXT NOT NULL,
         role TEXT NOT NULL,
         content TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'text',
         createdAt TEXT NOT NULL,
         FOREIGN KEY (chatId) REFERENCES chats(id) ON DELETE CASCADE
       )

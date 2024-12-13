@@ -127,6 +127,16 @@ app.whenReady().then(() => {
     }
   })
 
+  ipcMain.handle('image:generate', async (_, prompt: string) => {
+    try {
+      const imageBase64 = await ollamaService.generateImage(prompt)
+      return { success: true, data: imageBase64 }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
   createWindow()
 
   app.on('activate', function () {

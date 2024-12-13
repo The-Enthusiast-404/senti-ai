@@ -6,7 +6,7 @@ declare global {
     api: {
       chat: (params: {
         chatId: string | null
-        messages: { role: 'user' | 'assistant'; content: string }[]
+        messages: { role: 'user' | 'assistant'; content: string; type: 'text' | 'image' }[]
       }) => Promise<{
         success: boolean
         data?: {
@@ -35,6 +35,7 @@ declare global {
           chatId: string
           role: 'user' | 'assistant'
           content: string
+          type: 'text' | 'image'
           createdAt: string
         }[]
         error?: string
@@ -45,6 +46,11 @@ declare global {
         newTitle: string
       ) => Promise<{
         success: boolean
+        error?: string
+      }>
+      generateImage: (prompt: string) => Promise<{
+        success: boolean
+        data?: string
         error?: string
       }>
     }
