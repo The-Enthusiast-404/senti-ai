@@ -3,6 +3,18 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { OllamaService } from './services/ollama'
+import dotenv from 'dotenv'
+import path from 'path'
+
+// Load environment variables from .env file
+dotenv.config({
+  path: path.join(process.cwd(), '.env')
+})
+
+// Validate required environment variables
+if (!process.env.BRAVE_API_KEY) {
+  console.error('BRAVE_API_KEY is required in .env file')
+}
 
 const ollamaService = new OllamaService()
 
@@ -131,6 +143,46 @@ app.whenReady().then(() => {
     try {
       const imageBase64 = await ollamaService.generateImage(prompt)
       return { success: true, data: imageBase64 }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('document:process', async (_, filePath) => {
+    try {
+      const result = await ollamaService.processFile(filePath)
+      return { success: true, data: result }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('ollama:chatWithRAG', async (_, params) => {
+    try {
+      const result = await ollamaService.chatWithRAG(params.chatId, params.messages)
+      return { success: true, data: result }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('ollama:chatWithWebRAG', async (_, params) => {
+    try {
+      const result = await ollamaService.chatWithWebRAG(params.chatId, params.messages)
+      return { success: true, data: result }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('document:remove', async (_, fileId) => {
+    try {
+      await ollamaService.removeProcessedFile(fileId)
+      return { success: true }
     } catch (err) {
       const error = err instanceof Error ? err.message : 'Unknown error occurred'
       return { success: false, error }

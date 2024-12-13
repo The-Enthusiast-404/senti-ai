@@ -10,6 +10,18 @@ interface MessageContentProps {
   isUser: boolean
 }
 
+interface Source {
+  id: number
+  title: string
+  url: string
+  domain: string
+}
+
+interface FormattedResponse {
+  content: string
+  sources: Source[]
+}
+
 export default function MessageContent({ content, type, isUser }: MessageContentProps) {
   if (type === 'image') {
     return (
@@ -20,6 +32,25 @@ export default function MessageContent({ content, type, isUser }: MessageContent
   }
 
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
+  let formattedContent = ''
+  let sources: Source[] = []
+
+  // Handle the response object
+  if (typeof content === 'object' && content !== null) {
+    const response = content as any
+    formattedContent = response.content || ''
+    sources = response.sources || []
+  } else {
+    try {
+      const parsed = JSON.parse(content)
+      if (typeof parsed === 'object' && parsed !== null) {
+        formattedContent = parsed.content || ''
+        sources = Array.isArray(parsed.sources) ? parsed.sources : []
+      }
+    } catch (e) {
+      formattedContent = String(content)
+    }
+  }
 
   const copyToClipboard = async (code: string) => {
     try {
@@ -94,67 +125,43 @@ export default function MessageContent({ content, type, isUser }: MessageContent
                 {children}
               </code>
             )
-          },
-          h1: ({ children }) => (
-            <h1 className="text-2xl font-bold border-b border-gray-700 pb-2 mb-4">{children}</h1>
-          ),
-          h2: ({ children }) => (
-            <h2 className="text-xl font-bold border-b border-gray-700 pb-2 mb-3">{children}</h2>
-          ),
-          h3: ({ children }) => <h3 className="text-lg font-bold mb-2">{children}</h3>,
-          ul: ({ children }) => (
-            <ul className="list-disc list-inside space-y-1 pl-4">{children}</ul>
-          ),
-          ol: ({ children }) => (
-            <ol className="list-decimal list-inside space-y-1 pl-4">{children}</ol>
-          ),
-          li: ({ children }) => <li className="pl-2">{children}</li>,
-          blockquote: ({ children }) => (
-            <blockquote className="border-l-4 border-gray-500 pl-4 italic bg-gray-800/50 py-2 rounded">
-              {children}
-            </blockquote>
-          ),
-          a: ({ href, children }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 underline decoration-dotted"
-            >
-              {children}
-              <svg
-                className="w-3 h-3 inline-block ml-1"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                />
-              </svg>
-            </a>
-          ),
-          p: ({ children }) => <p className="leading-relaxed">{children}</p>,
-          table: ({ children }) => (
-            <table className="border-collapse w-full my-4">{children}</table>
-          ),
-          thead: ({ children }) => <thead className="bg-gray-800">{children}</thead>,
-          tbody: ({ children }) => <tbody className="bg-gray-900">{children}</tbody>,
-          tr: ({ children }) => <tr className="border-b border-gray-700">{children}</tr>,
-          th: ({ children }) => (
-            <th className="border border-gray-700 px-4 py-2 text-left">{children}</th>
-          ),
-          td: ({ children }) => <td className="border border-gray-700 px-4 py-2">{children}</td>,
-          em: ({ children }) => <em className="italic text-gray-300">{children}</em>,
-          strong: ({ children }) => <strong className="font-bold text-gray-100">{children}</strong>,
-          hr: () => <hr className="border-gray-700 my-4" />
+          }
         }}
       >
-        {content}
+        {String(formattedContent)}
       </ReactMarkdown>
+
+      {sources.length > 0 && (
+        <div className="mt-6 pt-4 border-t border-gray-700/50">
+          <div className="flex flex-wrap gap-2">
+            {sources.map((source) => (
+              <a
+                key={source.id}
+                href={source.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700"
+              >
+                <span className="mr-1.5 text-gray-500">[{source.id}]</span>
+                <span className="mr-1.5">{source.domain}</span>
+                <svg
+                  className="w-3 h-3 text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
+                </svg>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

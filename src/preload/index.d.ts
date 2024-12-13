@@ -53,6 +53,47 @@ declare global {
         data?: string
         error?: string
       }>
+      processFile: (filePath: string) => Promise<{
+        success: boolean
+        data?: {
+          id: string
+          filename: string
+          chunks: number
+          createdAt: string
+        }
+        error?: string
+      }>
+      chatWithRAG: (params: {
+        chatId: string | null
+        messages: {
+          role: 'user' | 'assistant'
+          content: string
+          type: 'text' | 'image'
+        }[]
+      }) => Promise<{
+        success: boolean
+        data?: {
+          chatId: string
+          content: string
+        }
+        error?: string
+      }>
+      chatWithWebRAG: (params: {
+        chatId: string | null
+        messages: {
+          role: 'user' | 'assistant'
+          content: string
+          type: 'text' | 'image'
+        }[]
+      }) => Promise<{
+        success: boolean
+        data?: {
+          chatId: string
+          content: string
+        }
+        error?: string
+      }>
+      removeProcessedFile: (fileId: string) => Promise<{ success: boolean; error?: string }>
     }
   }
 }

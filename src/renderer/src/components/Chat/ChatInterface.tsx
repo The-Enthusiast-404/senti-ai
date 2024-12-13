@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import ModelSelector from '../ModelSelector/ModelSelector'
 import MessageContent from './MessageContent'
 import ImageUpload from './ImageUpload'
+import FileUpload from './FileUpload'
+import ContextSources from './ContextSources'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -28,6 +30,9 @@ export default function ChatInterface() {
   const [editingChatId, setEditingChatId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
   const [showImageUpload, setShowImageUpload] = useState(false)
+  const [showFileUpload, setShowFileUpload] = useState(false)
+  const [ragMode, setRagMode] = useState<'none' | 'files' | 'web'>('none')
+  const [processedFiles, setProcessedFiles] = useState<Array<{ id: string; filename: string }>>([])
 
   useEffect(() => {
     loadChats()
@@ -100,10 +105,23 @@ export default function ChatInterface() {
     setIsLoading(true)
 
     try {
-      const response = await window.api.chat({
-        chatId: currentChatId,
-        messages: [...messages, userMessage]
-      })
+      let response
+      if (ragMode === 'web') {
+        response = await window.api.chatWithWebRAG({
+          chatId: currentChatId,
+          messages: [...messages, userMessage]
+        })
+      } else if (ragMode === 'files') {
+        response = await window.api.chatWithRAG({
+          chatId: currentChatId,
+          messages: [...messages, userMessage]
+        })
+      } else {
+        response = await window.api.chat({
+          chatId: currentChatId,
+          messages: [...messages, userMessage]
+        })
+      }
 
       if (response.success && response.data?.content && response.data?.chatId) {
         setMessages((prev) => [
@@ -111,7 +129,7 @@ export default function ChatInterface() {
           { role: 'assistant', content: response.data!.content, type: 'text' as const }
         ])
         setCurrentChatId(response.data.chatId)
-        await loadChats() // Refresh chat list
+        await loadChats()
       } else {
         throw new Error(response.error || 'Failed to get response')
       }
@@ -122,7 +140,7 @@ export default function ChatInterface() {
         {
           role: 'assistant',
           content: 'Sorry, there was an error processing your request.',
-          type: 'text' as const
+          type: 'text'
         }
       ])
     } finally {
@@ -240,6 +258,56 @@ export default function ChatInterface() {
     }
   }
 
+  const handleFileSelect = async (file: File) => {
+    setIsLoading(true)
+    try {
+      const response = await window.api.processFile(file.path)
+      if (response.success && response.data?.filename) {
+        setProcessedFiles((prev) => [
+          ...prev,
+          {
+            id: response.data.id,
+            filename: response.data.filename
+          }
+        ])
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `File "${response.data.filename}" has been processed and added to my knowledge base. You can now ask questions about it.`,
+            type: 'text'
+          }
+        ])
+        // Automatically enable file RAG when a file is uploaded
+        setRagMode('files')
+      } else {
+        throw new Error(response.error || 'Failed to process file')
+      }
+    } catch (err) {
+      console.error('File processing error:', err)
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Sorry, there was an error processing the file.',
+          type: 'text'
+        }
+      ])
+    } finally {
+      setIsLoading(false)
+      setShowFileUpload(false)
+    }
+  }
+
+  const handleRemoveFile = async (fileId: string) => {
+    try {
+      await window.api.removeProcessedFile(fileId)
+      setProcessedFiles((prev) => prev.filter((f) => f.id !== fileId))
+    } catch (error) {
+      console.error('Failed to remove file:', error)
+    }
+  }
+
   return (
     <div className="flex h-screen bg-gray-900">
       {/* Chat History Sidebar */}
@@ -336,27 +404,70 @@ export default function ChatInterface() {
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
-        <div className="border-b border-gray-700 p-4 flex items-center">
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="mr-4 p-2 hover:bg-gray-700 rounded-lg"
-          >
-            <svg
-              className="w-6 h-6 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+        <div className="border-b border-gray-700 p-4 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2 hover:bg-gray-700 rounded-lg"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
-          <ModelSelector onModelSelect={handleModelSelect} currentModel={currentModel} />
+              <svg
+                className="w-6 h-6 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+            <ModelSelector onModelSelect={handleModelSelect} currentModel={currentModel} />
+          </div>
+
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-400">Web Search</span>
+              <button
+                onClick={() => setRagMode(ragMode === 'web' ? 'none' : 'web')}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                  ragMode === 'web' ? 'bg-blue-600' : 'bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    ragMode === 'web' ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-400">Use Files</span>
+              <button
+                onClick={() => setRagMode(ragMode === 'files' ? 'none' : 'files')}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                  ragMode === 'files' ? 'bg-blue-600' : 'bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    ragMode === 'files' ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
         </div>
+
+        <ContextSources
+          webEnabled={ragMode === 'web'}
+          filesEnabled={ragMode === 'files'}
+          files={processedFiles}
+          onRemoveFile={handleRemoveFile}
+        />
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -389,7 +500,17 @@ export default function ChatInterface() {
 
         {/* Input Form */}
         <div className="border-t border-gray-700 p-4">
-          {showImageUpload ? (
+          {showFileUpload ? (
+            <div className="space-y-4">
+              <FileUpload onFileSelect={handleFileSelect} />
+              <button
+                onClick={() => setShowFileUpload(false)}
+                className="w-full py-2 text-gray-400 hover:text-white"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : showImageUpload ? (
             <div className="space-y-4">
               <ImageUpload onImageSelect={handleImageSelect} />
               <button
@@ -405,14 +526,29 @@ export default function ChatInterface() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                className="flex-1 bg-gray-800 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 bg-gray-800 text-white rounded-lg px-4 py-2"
                 placeholder="Type your message..."
                 disabled={isLoading}
               />
               <button
                 type="button"
-                onClick={handleImageGeneration}
-                className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onClick={() => setShowFileUpload(true)}
+                className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg"
+                disabled={isLoading}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowImageUpload(true)}
+                className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg"
                 disabled={isLoading}
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

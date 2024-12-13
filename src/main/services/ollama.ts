@@ -2,6 +2,12 @@ import { ChatOllama } from '@langchain/community/chat_models/ollama'
 import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages'
 import { DatabaseService } from './database'
 import { v4 as uuidv4 } from 'uuid'
+import { DocumentProcessor } from './documentProcessor'
+import { StringOutputParser } from '@langchain/core/output_parsers'
+import { RunnableSequence } from '@langchain/core/runnables'
+import { formatDocumentsAsString } from 'langchain/util/document'
+import { ProcessedDocument } from './documentProcessor'
+import { WebSearchService } from './webSearch'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -19,6 +25,8 @@ interface ImageGenerationResponse {
 export class OllamaService {
   private model: ChatOllama
   private db: DatabaseService
+  private documentProcessor: DocumentProcessor
+  private webSearch: WebSearchService
 
   constructor(modelName: string = 'llama2') {
     this.model = new ChatOllama({
@@ -26,6 +34,13 @@ export class OllamaService {
       model: modelName
     })
     this.db = new DatabaseService()
+    this.documentProcessor = new DocumentProcessor()
+
+    const braveApiKey = process.env.BRAVE_API_KEY
+    if (!braveApiKey) {
+      console.warn('BRAVE_API_KEY not found in environment variables')
+    }
+    this.webSearch = new WebSearchService(braveApiKey || '')
   }
 
   async getAvailableModels(): Promise<string[]> {
@@ -151,5 +166,126 @@ export class OllamaService {
 
     const data = await response.json()
     return data.data[0].b64_json
+  }
+
+  async processFile(filePath: string): Promise<ProcessedDocument> {
+    return await this.documentProcessor.processFile(filePath)
+  }
+
+  async chatWithRAG(chatId: string | null, messages: Message[]) {
+    const lastMessage = messages[messages.length - 1]
+    const relevantDocs = await this.documentProcessor.queryDocuments(lastMessage.content)
+
+    let newChatId = chatId
+    if (!newChatId) {
+      newChatId = uuidv4()
+      await this.db.createChat({
+        id: newChatId,
+        title: lastMessage.content.slice(0, 50) + '...',
+        model: this.model.model,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      })
+    }
+
+    const context = formatDocumentsAsString(relevantDocs)
+    const prompt = `Context: ${context}\n\nQuestion: ${lastMessage.content}\n\nAnswer: `
+
+    const chain = RunnableSequence.from([this.model, new StringOutputParser()])
+    const response = await chain.invoke(prompt)
+
+    // Save message to database
+    await this.db.addMessage({
+      id: uuidv4(),
+      chatId: newChatId,
+      role: 'user',
+      content: lastMessage.content,
+      type: 'text',
+      createdAt: new Date().toISOString()
+    })
+
+    await this.db.addMessage({
+      id: uuidv4(),
+      chatId: newChatId,
+      role: 'assistant',
+      content: response,
+      type: 'text',
+      createdAt: new Date().toISOString()
+    })
+
+    return {
+      chatId: newChatId,
+      content: response
+    }
+  }
+
+  async chatWithWebRAG(chatId: string | null, messages: Message[]) {
+    const lastMessage = messages[messages.length - 1]
+    const webResults = await this.webSearch.search(lastMessage.content)
+
+    let newChatId = chatId
+    if (!newChatId) {
+      newChatId = uuidv4()
+      await this.db.createChat({
+        id: newChatId,
+        title: lastMessage.content.slice(0, 50) + '...',
+        model: this.model.model,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      })
+    }
+
+    const sources = webResults.map((doc, index) => ({
+      id: index + 1,
+      title: doc.metadata.title,
+      url: doc.metadata.source,
+      domain: doc.metadata.domain
+    }))
+
+    const context = webResults.map((doc, index) => `[${index + 1}] ${doc.pageContent}`).join('\n\n')
+
+    const prompt = `Context from web search:\n${context}\n\n
+Question: ${lastMessage.content}\n\n
+Instructions:
+1. Provide a comprehensive answer based on the search results
+2. Reference sources using [1], [2], etc. corresponding to the numbers in the context
+3. Be concise but informative
+4. Only cite sources that you actually use in your response`
+
+    const chain = RunnableSequence.from([this.model, new StringOutputParser()])
+    const response = await chain.invoke(prompt)
+
+    const formattedResponse = {
+      content: response,
+      sources
+    }
+
+    // Save messages to database
+    await this.db.addMessage({
+      id: uuidv4(),
+      chatId: newChatId,
+      role: 'user',
+      content: lastMessage.content,
+      type: 'text',
+      createdAt: new Date().toISOString()
+    })
+
+    await this.db.addMessage({
+      id: uuidv4(),
+      chatId: newChatId,
+      role: 'assistant',
+      content: JSON.stringify(formattedResponse),
+      type: 'text',
+      createdAt: new Date().toISOString()
+    })
+
+    return {
+      chatId: newChatId,
+      content: formattedResponse
+    }
+  }
+
+  async removeProcessedFile(fileId: string): Promise<void> {
+    await this.documentProcessor.deleteDocument(fileId)
   }
 }
