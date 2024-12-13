@@ -1,12 +1,20 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-// Custom APIs for renderer
-const api = {}
+const api = {
+  chat: (params: {
+    chatId: string | null
+    messages: { role: 'user' | 'assistant'; content: string }[]
+  }) => ipcRenderer.invoke('ollama:chat', params),
+  setModel: (modelName: string) => ipcRenderer.invoke('ollama:setModel', modelName),
+  getModels: () => ipcRenderer.invoke('ollama:getModels'),
+  getChats: () => ipcRenderer.invoke('chat:getAll'),
+  getChatMessages: (chatId: string) => ipcRenderer.invoke('chat:getMessages', chatId),
+  deleteChat: (chatId: string) => ipcRenderer.invoke('chat:delete', chatId),
+  updateChatTitle: (chatId: string, newTitle: string) =>
+    ipcRenderer.invoke('chat:updateTitle', chatId, newTitle)
+}
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
