@@ -3,6 +3,12 @@ import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages'
 import { DatabaseService } from './database'
 import { v4 as uuidv4 } from 'uuid'
 
+interface Message {
+  role: 'user' | 'assistant'
+  content: string
+  type: 'text' | 'image'
+}
+
 export class OllamaService {
   private model: ChatOllama
   private db: DatabaseService
@@ -21,10 +27,23 @@ export class OllamaService {
     return data.models.map((model: { name: string }) => model.name)
   }
 
-  async chat(chatId: string | null, messages: { role: 'user' | 'assistant'; content: string }[]) {
-    const formattedMessages: BaseMessage[] = messages.map((msg) =>
-      msg.role === 'user' ? new HumanMessage(msg.content) : new AIMessage(msg.content)
-    )
+  async chat(chatId: string | null, messages: Message[]) {
+    const formattedMessages: BaseMessage[] = messages.map((msg) => {
+      if (msg.role === 'user') {
+        if (msg.type === 'image') {
+          return new HumanMessage({
+            content: [
+              {
+                type: 'image_url',
+                image_url: msg.content
+              }
+            ]
+          })
+        }
+        return new HumanMessage(msg.content)
+      }
+      return new AIMessage(msg.content)
+    })
 
     const response = await this.model.call(formattedMessages)
 
@@ -56,6 +75,7 @@ export class OllamaService {
       chatId,
       role: 'user' as const,
       content: messages[messages.length - 1].content,
+      type: messages[messages.length - 1].type || 'text',
       createdAt: new Date().toISOString()
     }
     this.db.addMessage(userMessage)
@@ -66,6 +86,7 @@ export class OllamaService {
       chatId,
       role: 'assistant' as const,
       content: String(response.content),
+      type: 'text' as const,
       createdAt: new Date().toISOString()
     }
     this.db.addMessage(assistantMessage)

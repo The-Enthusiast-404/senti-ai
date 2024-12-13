@@ -6,10 +6,19 @@ import { useState } from 'react'
 
 interface MessageContentProps {
   content: string
+  type: 'text' | 'image'
   isUser: boolean
 }
 
-export default function MessageContent({ content, isUser }: MessageContentProps) {
+export default function MessageContent({ content, type, isUser }: MessageContentProps) {
+  if (type === 'image') {
+    return (
+      <div className="max-w-sm">
+        <img src={content} alt="Uploaded content" className="rounded-lg max-w-full h-auto" />
+      </div>
+    )
+  }
+
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
 
   const copyToClipboard = async (code: string) => {
