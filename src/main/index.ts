@@ -2,6 +2,9 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { OllamaService } from './services/ollama'
+
+const ollamaService = new OllamaService()
 
 function createWindow(): void {
   // Create the browser window.
@@ -51,6 +54,37 @@ app.whenReady().then(() => {
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
+
+  // Ollama IPC handlers
+  ipcMain.handle('ollama:chat', async (_, messages) => {
+    try {
+      const response = await ollamaService.chat(messages)
+      return { success: true, data: response }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('ollama:setModel', async (_, modelName) => {
+    try {
+      ollamaService.setModel(modelName)
+      return { success: true }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('ollama:getModels', async () => {
+    try {
+      const models = await ollamaService.getAvailableModels()
+      return { success: true, data: models }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
 
   createWindow()
 
