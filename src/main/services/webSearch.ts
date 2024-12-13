@@ -52,11 +52,13 @@ export class WebSearchService {
       }
 
       return data.web.results.map((result) => {
+        const domain = new URL(result.url).hostname.replace('www.', '')
         return new Document({
-          pageContent: `Title: ${result.title}\nDescription: ${result.description}\nURL: ${result.url}`,
+          pageContent: result.description,
           metadata: {
             source: result.url,
             title: result.title,
+            domain: domain,
             type: 'web_search'
           }
         })

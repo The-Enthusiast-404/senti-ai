@@ -221,8 +221,6 @@ export class OllamaService {
 
   async chatWithWebRAG(chatId: string | null, messages: Message[]) {
     const lastMessage = messages[messages.length - 1]
-
-    // Get relevant web search results
     const webResults = await this.webSearch.search(lastMessage.content)
 
     let newChatId = chatId
@@ -237,11 +235,30 @@ export class OllamaService {
       })
     }
 
-    const context = formatDocumentsAsString(webResults)
-    const prompt = `Context from web search:\n${context}\n\nQuestion: ${lastMessage.content}\n\nProvide a comprehensive answer based on the search results. Include relevant URLs as citations in your response.`
+    const sources = webResults.map((doc, index) => ({
+      id: index + 1,
+      title: doc.metadata.title,
+      url: doc.metadata.source,
+      domain: doc.metadata.domain
+    }))
+
+    const context = webResults.map((doc, index) => `[${index + 1}] ${doc.pageContent}`).join('\n\n')
+
+    const prompt = `Context from web search:\n${context}\n\n
+Question: ${lastMessage.content}\n\n
+Instructions:
+1. Provide a comprehensive answer based on the search results
+2. Reference sources using [1], [2], etc. corresponding to the numbers in the context
+3. Be concise but informative
+4. Only cite sources that you actually use in your response`
 
     const chain = RunnableSequence.from([this.model, new StringOutputParser()])
     const response = await chain.invoke(prompt)
+
+    const formattedResponse = {
+      content: response,
+      sources
+    }
 
     // Save messages to database
     await this.db.addMessage({
@@ -257,14 +274,14 @@ export class OllamaService {
       id: uuidv4(),
       chatId: newChatId,
       role: 'assistant',
-      content: response,
+      content: JSON.stringify(formattedResponse),
       type: 'text',
       createdAt: new Date().toISOString()
     })
 
     return {
       chatId: newChatId,
-      content: response
+      content: formattedResponse
     }
   }
 
