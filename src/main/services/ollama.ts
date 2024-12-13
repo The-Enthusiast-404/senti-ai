@@ -7,6 +7,7 @@ import { StringOutputParser } from '@langchain/core/output_parsers'
 import { RunnableSequence } from '@langchain/core/runnables'
 import { formatDocumentsAsString } from 'langchain/util/document'
 import { ProcessedDocument } from './documentProcessor'
+import { WebSearchService } from './webSearch'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -25,6 +26,7 @@ export class OllamaService {
   private model: ChatOllama
   private db: DatabaseService
   private documentProcessor: DocumentProcessor
+  private webSearch: WebSearchService
 
   constructor(modelName: string = 'llama2') {
     this.model = new ChatOllama({
@@ -33,6 +35,12 @@ export class OllamaService {
     })
     this.db = new DatabaseService()
     this.documentProcessor = new DocumentProcessor()
+
+    const braveApiKey = process.env.BRAVE_API_KEY
+    if (!braveApiKey) {
+      console.warn('BRAVE_API_KEY not found in environment variables')
+    }
+    this.webSearch = new WebSearchService(braveApiKey || '')
   }
 
   async getAvailableModels(): Promise<string[]> {
@@ -187,6 +195,55 @@ export class OllamaService {
     const response = await chain.invoke(prompt)
 
     // Save message to database
+    await this.db.addMessage({
+      id: uuidv4(),
+      chatId: newChatId,
+      role: 'user',
+      content: lastMessage.content,
+      type: 'text',
+      createdAt: new Date().toISOString()
+    })
+
+    await this.db.addMessage({
+      id: uuidv4(),
+      chatId: newChatId,
+      role: 'assistant',
+      content: response,
+      type: 'text',
+      createdAt: new Date().toISOString()
+    })
+
+    return {
+      chatId: newChatId,
+      content: response
+    }
+  }
+
+  async chatWithWebRAG(chatId: string | null, messages: Message[]) {
+    const lastMessage = messages[messages.length - 1]
+
+    // Get relevant web search results
+    const webResults = await this.webSearch.search(lastMessage.content)
+
+    let newChatId = chatId
+    if (!newChatId) {
+      newChatId = uuidv4()
+      await this.db.createChat({
+        id: newChatId,
+        title: lastMessage.content.slice(0, 50) + '...',
+        model: this.model.model,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      })
+    }
+
+    const context = formatDocumentsAsString(webResults)
+    const prompt = `Context from web search:\n${context}\n\nQuestion: ${lastMessage.content}\n\nProvide a comprehensive answer based on the search results. Include relevant URLs as citations in your response.`
+
+    const chain = RunnableSequence.from([this.model, new StringOutputParser()])
+    const response = await chain.invoke(prompt)
+
+    // Save messages to database
     await this.db.addMessage({
       id: uuidv4(),
       chatId: newChatId,

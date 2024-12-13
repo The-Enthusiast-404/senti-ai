@@ -30,6 +30,7 @@ export default function ChatInterface() {
   const [editingTitle, setEditingTitle] = useState('')
   const [showImageUpload, setShowImageUpload] = useState(false)
   const [showFileUpload, setShowFileUpload] = useState(false)
+  const [ragMode, setRagMode] = useState<'none' | 'files' | 'web'>('none')
 
   useEffect(() => {
     loadChats()
@@ -102,10 +103,23 @@ export default function ChatInterface() {
     setIsLoading(true)
 
     try {
-      const response = await window.api.chatWithRAG({
-        chatId: currentChatId,
-        messages: [...messages, userMessage]
-      })
+      let response
+      if (ragMode === 'web') {
+        response = await window.api.chatWithWebRAG({
+          chatId: currentChatId,
+          messages: [...messages, userMessage]
+        })
+      } else if (ragMode === 'files') {
+        response = await window.api.chatWithRAG({
+          chatId: currentChatId,
+          messages: [...messages, userMessage]
+        })
+      } else {
+        response = await window.api.chat({
+          chatId: currentChatId,
+          messages: [...messages, userMessage]
+        })
+      }
 
       if (response.success && response.data?.content && response.data?.chatId) {
         setMessages((prev) => [
@@ -124,7 +138,7 @@ export default function ChatInterface() {
         {
           role: 'assistant',
           content: 'Sorry, there was an error processing your request.',
-          type: 'text' as const
+          type: 'text'
         }
       ])
     } finally {
@@ -496,6 +510,28 @@ export default function ChatInterface() {
               </button>
             </form>
           )}
+        </div>
+
+        {/* RAG Mode Selector */}
+        <div className="flex space-x-2 mb-4">
+          <button
+            onClick={() => setRagMode('none')}
+            className={`px-3 py-1 rounded ${ragMode === 'none' ? 'bg-blue-600' : 'bg-gray-700'}`}
+          >
+            Normal Chat
+          </button>
+          <button
+            onClick={() => setRagMode('files')}
+            className={`px-3 py-1 rounded ${ragMode === 'files' ? 'bg-blue-600' : 'bg-gray-700'}`}
+          >
+            File RAG
+          </button>
+          <button
+            onClick={() => setRagMode('web')}
+            className={`px-3 py-1 rounded ${ragMode === 'web' ? 'bg-blue-600' : 'bg-gray-700'}`}
+          >
+            Web Search
+          </button>
         </div>
       </div>
     </div>

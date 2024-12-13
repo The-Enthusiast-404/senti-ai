@@ -15,7 +15,8 @@ const api = {
     ipcRenderer.invoke('chat:updateTitle', chatId, newTitle),
   generateImage: (prompt: string) => ipcRenderer.invoke('image:generate', prompt),
   processFile: (filePath: string) => ipcRenderer.invoke('document:process', filePath),
-  chatWithRAG: (params) => ipcRenderer.invoke('ollama:chatWithRAG', params)
+  chatWithRAG: (params) => ipcRenderer.invoke('ollama:chatWithRAG', params),
+  chatWithWebRAG: (params) => ipcRenderer.invoke('ollama:chatWithWebRAG', params)
 }
 
 if (process.contextIsolated) {

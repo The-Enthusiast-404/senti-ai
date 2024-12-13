@@ -78,6 +78,21 @@ declare global {
         }
         error?: string
       }>
+      chatWithWebRAG: (params: {
+        chatId: string | null
+        messages: {
+          role: 'user' | 'assistant'
+          content: string
+          type: 'text' | 'image'
+        }[]
+      }) => Promise<{
+        success: boolean
+        data?: {
+          chatId: string
+          content: string
+        }
+        error?: string
+      }>
     }
   }
 }
