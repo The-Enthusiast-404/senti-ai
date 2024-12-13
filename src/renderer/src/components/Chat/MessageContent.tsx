@@ -85,7 +85,17 @@ export default function MessageContent({ content, isUser }: MessageContentProps)
                 {children}
               </code>
             )
-          }
+          },
+          table: ({ children }) => (
+            <table className="border-collapse w-full my-4">{children}</table>
+          ),
+          thead: ({ children }) => <thead className="bg-gray-800">{children}</thead>,
+          tbody: ({ children }) => <tbody className="bg-gray-900">{children}</tbody>,
+          tr: ({ children }) => <tr className="border-b border-gray-700">{children}</tr>,
+          th: ({ children }) => (
+            <th className="border border-gray-700 px-4 py-2 text-left">{children}</th>
+          ),
+          td: ({ children }) => <td className="border border-gray-700 px-4 py-2">{children}</td>
         }}
       >
         {content}
