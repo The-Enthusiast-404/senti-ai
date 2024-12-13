@@ -3,6 +3,7 @@ import ModelSelector from '../ModelSelector/ModelSelector'
 import MessageContent from './MessageContent'
 import ImageUpload from './ImageUpload'
 import FileUpload from './FileUpload'
+import ContextSources from './ContextSources'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -31,6 +32,7 @@ export default function ChatInterface() {
   const [showImageUpload, setShowImageUpload] = useState(false)
   const [showFileUpload, setShowFileUpload] = useState(false)
   const [ragMode, setRagMode] = useState<'none' | 'files' | 'web'>('none')
+  const [processedFiles, setProcessedFiles] = useState<Array<{ id: string; filename: string }>>([])
 
   useEffect(() => {
     loadChats()
@@ -261,6 +263,13 @@ export default function ChatInterface() {
     try {
       const response = await window.api.processFile(file.path)
       if (response.success && response.data?.filename) {
+        setProcessedFiles((prev) => [
+          ...prev,
+          {
+            id: response.data.id,
+            filename: response.data.filename
+          }
+        ])
         setMessages((prev) => [
           ...prev,
           {
@@ -269,6 +278,8 @@ export default function ChatInterface() {
             type: 'text'
           }
         ])
+        // Automatically enable file RAG when a file is uploaded
+        setRagMode('files')
       } else {
         throw new Error(response.error || 'Failed to process file')
       }
@@ -285,6 +296,15 @@ export default function ChatInterface() {
     } finally {
       setIsLoading(false)
       setShowFileUpload(false)
+    }
+  }
+
+  const handleRemoveFile = async (fileId: string) => {
+    try {
+      await window.api.removeProcessedFile(fileId)
+      setProcessedFiles((prev) => prev.filter((f) => f.id !== fileId))
+    } catch (error) {
+      console.error('Failed to remove file:', error)
     }
   }
 
@@ -384,27 +404,70 @@ export default function ChatInterface() {
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
-        <div className="border-b border-gray-700 p-4 flex items-center">
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="mr-4 p-2 hover:bg-gray-700 rounded-lg"
-          >
-            <svg
-              className="w-6 h-6 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+        <div className="border-b border-gray-700 p-4 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2 hover:bg-gray-700 rounded-lg"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
-          <ModelSelector onModelSelect={handleModelSelect} currentModel={currentModel} />
+              <svg
+                className="w-6 h-6 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+            <ModelSelector onModelSelect={handleModelSelect} currentModel={currentModel} />
+          </div>
+
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-400">Web Search</span>
+              <button
+                onClick={() => setRagMode(ragMode === 'web' ? 'none' : 'web')}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                  ragMode === 'web' ? 'bg-blue-600' : 'bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    ragMode === 'web' ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-400">Use Files</span>
+              <button
+                onClick={() => setRagMode(ragMode === 'files' ? 'none' : 'files')}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                  ragMode === 'files' ? 'bg-blue-600' : 'bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    ragMode === 'files' ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
         </div>
+
+        <ContextSources
+          webEnabled={ragMode === 'web'}
+          filesEnabled={ragMode === 'files'}
+          files={processedFiles}
+          onRemoveFile={handleRemoveFile}
+        />
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -510,28 +573,6 @@ export default function ChatInterface() {
               </button>
             </form>
           )}
-        </div>
-
-        {/* RAG Mode Selector */}
-        <div className="flex space-x-2 mb-4">
-          <button
-            onClick={() => setRagMode('none')}
-            className={`px-3 py-1 rounded ${ragMode === 'none' ? 'bg-blue-600' : 'bg-gray-700'}`}
-          >
-            Normal Chat
-          </button>
-          <button
-            onClick={() => setRagMode('files')}
-            className={`px-3 py-1 rounded ${ragMode === 'files' ? 'bg-blue-600' : 'bg-gray-700'}`}
-          >
-            File RAG
-          </button>
-          <button
-            onClick={() => setRagMode('web')}
-            className={`px-3 py-1 rounded ${ragMode === 'web' ? 'bg-blue-600' : 'bg-gray-700'}`}
-          >
-            Web Search
-          </button>
         </div>
       </div>
     </div>

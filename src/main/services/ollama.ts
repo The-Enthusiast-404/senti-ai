@@ -267,4 +267,8 @@ export class OllamaService {
       content: response
     }
   }
+
+  async removeProcessedFile(fileId: string): Promise<void> {
+    await this.documentProcessor.deleteDocument(fileId)
+  }
 }

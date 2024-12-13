@@ -93,6 +93,7 @@ declare global {
         }
         error?: string
       }>
+      removeProcessedFile: (fileId: string) => Promise<{ success: boolean; error?: string }>
     }
   }
 }

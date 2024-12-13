@@ -179,6 +179,16 @@ app.whenReady().then(() => {
     }
   })
 
+  ipcMain.handle('document:remove', async (_, fileId) => {
+    try {
+      await ollamaService.removeProcessedFile(fileId)
+      return { success: true }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
   createWindow()
 
   app.on('activate', function () {
