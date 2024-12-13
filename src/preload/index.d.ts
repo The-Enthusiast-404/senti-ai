@@ -4,13 +4,42 @@ declare global {
   interface Window {
     electron: ElectronAPI
     api: {
-      chat: (messages: { role: 'user' | 'assistant'; content: string }[]) => Promise<{
+      chat: (params: {
+        chatId: string | null
+        messages: { role: 'user' | 'assistant'; content: string }[]
+      }) => Promise<{
         success: boolean
-        data?: string
+        data?: {
+          chatId: string
+          content: string
+        }
         error?: string
       }>
       setModel: (modelName: string) => Promise<{ success: boolean; error?: string }>
       getModels: () => Promise<{ success: boolean; data?: string[]; error?: string }>
+      getChats: () => Promise<{
+        success: boolean
+        data?: {
+          id: string
+          title: string
+          model: string
+          createdAt: string
+          updatedAt: string
+        }[]
+        error?: string
+      }>
+      getChatMessages: (chatId: string) => Promise<{
+        success: boolean
+        data?: {
+          id: string
+          chatId: string
+          role: 'user' | 'assistant'
+          content: string
+          createdAt: string
+        }[]
+        error?: string
+      }>
+      deleteChat: (chatId: string) => Promise<{ success: boolean; error?: string }>
     }
   }
 }

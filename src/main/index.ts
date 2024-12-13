@@ -56,9 +56,9 @@ app.whenReady().then(() => {
   ipcMain.on('ping', () => console.log('pong'))
 
   // Ollama IPC handlers
-  ipcMain.handle('ollama:chat', async (_, messages) => {
+  ipcMain.handle('ollama:chat', async (_, { chatId, messages }) => {
     try {
-      const response = await ollamaService.chat(messages)
+      const response = await ollamaService.chat(chatId, messages)
       return { success: true, data: response }
     } catch (err) {
       const error = err instanceof Error ? err.message : 'Unknown error occurred'
@@ -80,6 +80,37 @@ app.whenReady().then(() => {
     try {
       const models = await ollamaService.getAvailableModels()
       return { success: true, data: models }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  // New chat history handlers
+  ipcMain.handle('chat:getAll', async () => {
+    try {
+      const chats = await ollamaService.getChats()
+      return { success: true, data: chats }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('chat:getMessages', async (_, chatId) => {
+    try {
+      const messages = await ollamaService.getChatMessages(chatId)
+      return { success: true, data: messages }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('chat:delete', async (_, chatId) => {
+    try {
+      await ollamaService.deleteChat(chatId)
+      return { success: true }
     } catch (err) {
       const error = err instanceof Error ? err.message : 'Unknown error occurred'
       return { success: false, error }
