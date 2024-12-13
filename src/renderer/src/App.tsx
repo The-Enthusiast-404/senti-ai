@@ -1,10 +1,11 @@
-import Versions from './components/Versions'
-import electronLogo from './assets/electron.svg'
+import ChatInterface from './components/Chat/ChatInterface'
 
 function App(): JSX.Element {
-  const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
-
-  return <h1 className="text-3xl font-bold underline text-red-500">Hello World</h1>
+  return (
+    <div className="h-screen w-screen">
+      <ChatInterface />
+    </div>
+  )
 }
 
 export default App
