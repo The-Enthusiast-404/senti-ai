@@ -117,6 +117,16 @@ app.whenReady().then(() => {
     }
   })
 
+  ipcMain.handle('chat:updateTitle', async (_, chatId: string, newTitle: string) => {
+    try {
+      await ollamaService.updateChatTitle(chatId, newTitle)
+      return { success: true }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
   createWindow()
 
   app.on('activate', function () {

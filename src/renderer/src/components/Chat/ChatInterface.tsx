@@ -22,6 +22,8 @@ export default function ChatInterface() {
   const [currentChatId, setCurrentChatId] = useState<string | null>(null)
   const [chats, setChats] = useState<Chat[]>([])
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [editingChatId, setEditingChatId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState('')
 
   useEffect(() => {
     loadChats()
@@ -112,6 +114,31 @@ export default function ChatInterface() {
     }
   }
 
+  const deleteChat = async (chatId: string) => {
+    try {
+      const response = await window.api.deleteChat(chatId)
+      if (response.success) {
+        if (currentChatId === chatId) {
+          handleNewChat()
+        }
+        await loadChats()
+      }
+    } catch (error) {
+      console.error('Failed to delete chat:', error)
+    }
+  }
+
+  const editChatTitle = async (chatId: string, newTitle: string) => {
+    try {
+      const response = await window.api.updateChatTitle(chatId, newTitle)
+      if (response.success) {
+        await loadChats()
+      }
+    } catch (error) {
+      console.error('Failed to update chat title:', error)
+    }
+  }
+
   return (
     <div className="flex h-screen bg-gray-900">
       {/* Chat History Sidebar */}
@@ -129,18 +156,78 @@ export default function ChatInterface() {
           </button>
           <div className="mt-4 space-y-2">
             {chats.map((chat) => (
-              <button
+              <div
                 key={chat.id}
-                onClick={() => loadChat(chat.id)}
-                className={`w-full text-left p-2 rounded-lg hover:bg-gray-700 ${
+                className={`group relative p-2 rounded-lg hover:bg-gray-700 ${
                   currentChatId === chat.id ? 'bg-gray-700' : ''
                 }`}
               >
-                <div className="truncate text-sm text-gray-200">{chat.title}</div>
+                <div className="flex justify-between items-center">
+                  {editingChatId === chat.id ? (
+                    <input
+                      type="text"
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onBlur={() => {
+                        if (editingTitle.trim() && editingTitle !== chat.title) {
+                          editChatTitle(chat.id, editingTitle.trim())
+                        }
+                        setEditingChatId(null)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          if (editingTitle.trim() && editingTitle !== chat.title) {
+                            editChatTitle(chat.id, editingTitle.trim())
+                          }
+                          setEditingChatId(null)
+                        }
+                        if (e.key === 'Escape') {
+                          setEditingChatId(null)
+                        }
+                      }}
+                      className="bg-gray-700 text-sm text-gray-200 p-1 rounded w-full outline-none"
+                      autoFocus
+                    />
+                  ) : (
+                    <div
+                      className="truncate text-sm text-gray-200 cursor-pointer"
+                      onClick={() => loadChat(chat.id)}
+                      onDoubleClick={() => {
+                        setEditingChatId(chat.id)
+                        setEditingTitle(chat.title)
+                      }}
+                    >
+                      {chat.title}
+                    </div>
+                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (confirm('Are you sure you want to delete this chat?')) {
+                        deleteChat(chat.id)
+                      }
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-600 rounded"
+                  >
+                    <svg
+                      className="w-4 h-4 text-gray-400 hover:text-red-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                </div>
                 <div className="text-xs text-gray-400">
                   {new Date(chat.updatedAt).toLocaleDateString()}
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         </div>

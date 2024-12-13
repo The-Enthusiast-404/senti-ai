@@ -63,10 +63,10 @@ export class DatabaseService {
   updateChat(chat: Chat): void {
     const stmt = this.db.prepare(`
       UPDATE chats 
-      SET title = @title, model = @model, updatedAt = @updatedAt
-      WHERE id = @id
+      SET title = ?, model = ?, updatedAt = ?
+      WHERE id = ?
     `)
-    stmt.run(chat)
+    stmt.run(chat.title, chat.model, chat.updatedAt, chat.id)
   }
 
   deleteChat(chatId: string): void {
@@ -107,5 +107,14 @@ export class DatabaseService {
     })
 
     transaction(chat, messages)
+  }
+
+  updateChatTitle(chatId: string, newTitle: string): void {
+    const stmt = this.db.prepare(`
+      UPDATE chats 
+      SET title = ?, updatedAt = ?
+      WHERE id = ?
+    `)
+    stmt.run(newTitle, new Date().toISOString(), chatId)
   }
 }

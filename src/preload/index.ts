@@ -2,13 +2,17 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 const api = {
-  chat: (messages: { role: 'user' | 'assistant'; content: string }[]) =>
-    ipcRenderer.invoke('ollama:chat', messages),
+  chat: (params: {
+    chatId: string | null
+    messages: { role: 'user' | 'assistant'; content: string }[]
+  }) => ipcRenderer.invoke('ollama:chat', params),
   setModel: (modelName: string) => ipcRenderer.invoke('ollama:setModel', modelName),
   getModels: () => ipcRenderer.invoke('ollama:getModels'),
   getChats: () => ipcRenderer.invoke('chat:getAll'),
   getChatMessages: (chatId: string) => ipcRenderer.invoke('chat:getMessages', chatId),
-  deleteChat: (chatId: string) => ipcRenderer.invoke('chat:delete', chatId)
+  deleteChat: (chatId: string) => ipcRenderer.invoke('chat:delete', chatId),
+  updateChatTitle: (chatId: string, newTitle: string) =>
+    ipcRenderer.invoke('chat:updateTitle', chatId, newTitle)
 }
 
 if (process.contextIsolated) {

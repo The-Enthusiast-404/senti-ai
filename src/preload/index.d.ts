@@ -40,6 +40,13 @@ declare global {
         error?: string
       }>
       deleteChat: (chatId: string) => Promise<{ success: boolean; error?: string }>
+      updateChatTitle: (
+        chatId: string,
+        newTitle: string
+      ) => Promise<{
+        success: boolean
+        error?: string
+      }>
     }
   }
 }

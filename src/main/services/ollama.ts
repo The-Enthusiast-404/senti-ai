@@ -94,4 +94,17 @@ export class OllamaService {
       model: modelName
     })
   }
+
+  async updateChatTitle(chatId: string, newTitle: string) {
+    const chat = this.db.getChat(chatId)
+    if (chat) {
+      const updatedChat = {
+        ...chat,
+        title: newTitle,
+        updatedAt: new Date().toISOString()
+      }
+      this.db.updateChat(updatedChat)
+      return updatedChat
+    }
+  }
 }
