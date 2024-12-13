@@ -137,6 +137,26 @@ app.whenReady().then(() => {
     }
   })
 
+  ipcMain.handle('document:process', async (_, filePath) => {
+    try {
+      const result = await ollamaService.processFile(filePath)
+      return { success: true, data: result }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('ollama:chatWithRAG', async (_, params) => {
+    try {
+      const result = await ollamaService.chatWithRAG(params.chatId, params.messages)
+      return { success: true, data: result }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
   createWindow()
 
   app.on('activate', function () {

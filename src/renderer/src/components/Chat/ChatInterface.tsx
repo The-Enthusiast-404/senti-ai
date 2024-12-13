@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import ModelSelector from '../ModelSelector/ModelSelector'
 import MessageContent from './MessageContent'
 import ImageUpload from './ImageUpload'
+import FileUpload from './FileUpload'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -28,6 +29,7 @@ export default function ChatInterface() {
   const [editingChatId, setEditingChatId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
   const [showImageUpload, setShowImageUpload] = useState(false)
+  const [showFileUpload, setShowFileUpload] = useState(false)
 
   useEffect(() => {
     loadChats()
@@ -100,7 +102,7 @@ export default function ChatInterface() {
     setIsLoading(true)
 
     try {
-      const response = await window.api.chat({
+      const response = await window.api.chatWithRAG({
         chatId: currentChatId,
         messages: [...messages, userMessage]
       })
@@ -111,7 +113,7 @@ export default function ChatInterface() {
           { role: 'assistant', content: response.data!.content, type: 'text' as const }
         ])
         setCurrentChatId(response.data.chatId)
-        await loadChats() // Refresh chat list
+        await loadChats()
       } else {
         throw new Error(response.error || 'Failed to get response')
       }
@@ -237,6 +239,38 @@ export default function ChatInterface() {
       ])
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleFileSelect = async (file: File) => {
+    setIsLoading(true)
+    try {
+      const response = await window.api.processFile(file.path)
+      if (response.success && response.data?.filename) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `File "${response.data.filename}" has been processed and added to my knowledge base. You can now ask questions about it.`,
+            type: 'text'
+          }
+        ])
+      } else {
+        throw new Error(response.error || 'Failed to process file')
+      }
+    } catch (err) {
+      console.error('File processing error:', err)
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Sorry, there was an error processing the file.',
+          type: 'text'
+        }
+      ])
+    } finally {
+      setIsLoading(false)
+      setShowFileUpload(false)
     }
   }
 
@@ -389,7 +423,17 @@ export default function ChatInterface() {
 
         {/* Input Form */}
         <div className="border-t border-gray-700 p-4">
-          {showImageUpload ? (
+          {showFileUpload ? (
+            <div className="space-y-4">
+              <FileUpload onFileSelect={handleFileSelect} />
+              <button
+                onClick={() => setShowFileUpload(false)}
+                className="w-full py-2 text-gray-400 hover:text-white"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : showImageUpload ? (
             <div className="space-y-4">
               <ImageUpload onImageSelect={handleImageSelect} />
               <button
@@ -405,14 +449,29 @@ export default function ChatInterface() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                className="flex-1 bg-gray-800 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 bg-gray-800 text-white rounded-lg px-4 py-2"
                 placeholder="Type your message..."
                 disabled={isLoading}
               />
               <button
                 type="button"
-                onClick={handleImageGeneration}
-                className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onClick={() => setShowFileUpload(true)}
+                className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg"
+                disabled={isLoading}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowImageUpload(true)}
+                className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg"
                 disabled={isLoading}
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
