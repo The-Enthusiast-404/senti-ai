@@ -4,6 +4,7 @@ import MessageContent from './MessageContent'
 import ImageUpload from './ImageUpload'
 import FileUpload from './FileUpload'
 import ContextSources from './ContextSources'
+import SystemPromptManager from '../SystemPrompts/SystemPromptManager'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -15,6 +16,16 @@ interface Chat {
   id: string
   title: string
   model: string
+  createdAt: string
+  updatedAt: string
+}
+
+interface SystemPrompt {
+  id: string
+  name: string
+  content: string
+  description: string
+  category: string
   createdAt: string
   updatedAt: string
 }
@@ -33,6 +44,8 @@ export default function ChatInterface() {
   const [showFileUpload, setShowFileUpload] = useState(false)
   const [ragMode, setRagMode] = useState<'none' | 'files' | 'web'>('none')
   const [processedFiles, setProcessedFiles] = useState<Array<{ id: string; filename: string }>>([])
+  const [showSystemPrompts, setShowSystemPrompts] = useState(false)
+  const [selectedSystemPrompt, setSelectedSystemPrompt] = useState<SystemPrompt | null>(null)
 
   useEffect(() => {
     loadChats()
@@ -91,6 +104,11 @@ export default function ChatInterface() {
     }
   }
 
+  const handleSystemPromptSelect = (prompt: SystemPrompt | null) => {
+    setSelectedSystemPrompt(prompt)
+    setShowSystemPrompts(false)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isLoading) return
@@ -100,26 +118,40 @@ export default function ChatInterface() {
       content: input.trim(),
       type: 'text' as const
     }
-    setMessages((prev) => [...prev, userMessage])
+
+    const currentMessages = [...messages, userMessage]
+    setMessages(currentMessages)
     setInput('')
     setIsLoading(true)
 
     try {
       let response
+      // Add system prompt if selected
+      const messagesWithSystem = selectedSystemPrompt
+        ? [
+            {
+              role: 'system' as const,
+              content: selectedSystemPrompt.content,
+              type: 'text' as const
+            },
+            ...currentMessages
+          ]
+        : currentMessages
+
       if (ragMode === 'web') {
         response = await window.api.chatWithWebRAG({
           chatId: currentChatId,
-          messages: [...messages, userMessage]
+          messages: messagesWithSystem
         })
       } else if (ragMode === 'files') {
         response = await window.api.chatWithRAG({
           chatId: currentChatId,
-          messages: [...messages, userMessage]
+          messages: messagesWithSystem
         })
       } else {
         response = await window.api.chat({
           chatId: currentChatId,
-          messages: [...messages, userMessage]
+          messages: messagesWithSystem
         })
       }
 
@@ -521,60 +553,117 @@ export default function ChatInterface() {
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="flex space-x-4">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                className="flex-1 bg-gray-800 text-white rounded-lg px-4 py-2"
-                placeholder="Type your message..."
-                disabled={isLoading}
-              />
-              <button
-                type="button"
-                onClick={() => setShowFileUpload(true)}
-                className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg"
-                disabled={isLoading}
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowImageUpload(true)}
-                className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg"
-                disabled={isLoading}
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-              </button>
-              <button
-                type="submit"
-                className={`px-6 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  isLoading
-                    ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-                disabled={isLoading}
-              >
-                Send
-              </button>
-            </form>
+            <div className="flex flex-col space-y-2">
+              {selectedSystemPrompt && (
+                <div className="flex items-center space-x-2 px-3 py-2 bg-gray-800 rounded-lg">
+                  <span className="text-sm text-gray-400">
+                    Using prompt: {selectedSystemPrompt.name}
+                  </span>
+                  <button
+                    onClick={() => setSelectedSystemPrompt(null)}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              )}
+              <form onSubmit={handleSubmit} className="flex space-x-4">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  className="flex-1 bg-gray-800 text-white rounded-lg px-4 py-2"
+                  placeholder="Type your message..."
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowFileUpload(true)}
+                  className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg"
+                  disabled={isLoading}
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowImageUpload(true)}
+                  className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg"
+                  disabled={isLoading}
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSystemPrompts(true)}
+                  className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg"
+                  disabled={isLoading}
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                    />
+                  </svg>
+                </button>
+                <button
+                  type="submit"
+                  className={`px-6 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    isLoading
+                      ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                  disabled={isLoading}
+                >
+                  Send
+                </button>
+              </form>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Add SystemPromptManager modal */}
+      {showSystemPrompts && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-900 rounded-lg w-3/4 max-h-[80vh] overflow-auto">
+            <SystemPromptManager
+              onSelectPrompt={handleSystemPromptSelect}
+              currentPrompt={selectedSystemPrompt}
+            />
+            <div className="p-4 border-t border-gray-700">
+              <button
+                onClick={() => setShowSystemPrompts(false)}
+                className="w-full py-2 text-gray-400 hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
+import { v4 as uuidv4 } from 'uuid'
 
 export interface ChatMessage {
   id: string
@@ -15,6 +16,16 @@ export interface Chat {
   id: string
   title: string
   model: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SystemPrompt {
+  id: string
+  name: string
+  content: string
+  description: string
+  category: string
   createdAt: string
   updatedAt: string
 }
@@ -52,6 +63,78 @@ export class DatabaseService {
         FOREIGN KEY (chatId) REFERENCES chats(id) ON DELETE CASCADE
       )
     `)
+
+    // Create system prompts table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS system_prompts (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        content TEXT NOT NULL,
+        description TEXT,
+        category TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      )
+    `)
+
+    // Initialize default prompts
+    this.initializeDefaultPrompts()
+  }
+
+  private initializeDefaultPrompts(): void {
+    const defaultPrompts: Omit<SystemPrompt, 'id' | 'createdAt' | 'updatedAt'>[] = [
+      {
+        name: 'Code Assistant',
+        category: 'Development',
+        description: 'Specialized in writing and explaining code',
+        content:
+          'You are an expert programming assistant. Focus on providing clean, well-documented code examples. Always explain your code and suggest best practices. If you notice potential issues or optimizations, point them out.'
+      },
+      {
+        name: 'Technical Writer',
+        category: 'Writing',
+        description: 'Helps with technical documentation and explanations',
+        content:
+          'You are a technical writing expert. Focus on clarity, accuracy, and structure. Use simple language to explain complex concepts. Include examples where helpful. Format your responses with clear headings and bullet points when appropriate.'
+      },
+      {
+        name: 'Math Tutor',
+        category: 'Education',
+        description: 'Helps with mathematical concepts and problem-solving',
+        content:
+          'You are a patient and thorough mathematics tutor. Break down complex problems into steps, explain your reasoning clearly, and provide additional examples when needed. Use LaTeX notation for mathematical expressions when appropriate.'
+      },
+      {
+        name: 'Concise Mode',
+        category: 'General',
+        description: 'Provides brief, to-the-point responses',
+        content:
+          'Provide brief, concise responses. Be direct and get to the point quickly. Avoid unnecessary explanations unless specifically asked.'
+      },
+      {
+        name: 'Socratic Teacher',
+        category: 'Education',
+        description: 'Teaches through questions and guided discovery',
+        content:
+          'Guide through questions rather than direct answers. Help users discover solutions themselves. Ask probing questions that lead to deeper understanding. When appropriate, break down complex topics into simpler components.'
+      }
+    ]
+
+    // Add each default prompt if it doesn't exist
+    for (const prompt of defaultPrompts) {
+      const exists = this.db
+        .prepare('SELECT id FROM system_prompts WHERE name = ?')
+        .get(prompt.name)
+      if (!exists) {
+        const now = new Date().toISOString()
+        this.createSystemPrompt({
+          ...prompt,
+          id: uuidv4(),
+          createdAt: now,
+          updatedAt: now
+        })
+      }
+    }
   }
 
   createChat(chat: Chat): void {
@@ -118,5 +201,44 @@ export class DatabaseService {
       WHERE id = ?
     `)
     stmt.run(newTitle, new Date().toISOString(), chatId)
+  }
+
+  createSystemPrompt(prompt: SystemPrompt): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO system_prompts (id, name, content, description, category, createdAt, updatedAt)
+      VALUES (@id, @name, @content, @description, @category, @createdAt, @updatedAt)
+    `)
+    stmt.run(prompt)
+  }
+
+  updateSystemPrompt(prompt: SystemPrompt): void {
+    const stmt = this.db.prepare(`
+      UPDATE system_prompts 
+      SET name = ?, content = ?, description = ?, category = ?, updatedAt = ?
+      WHERE id = ?
+    `)
+    stmt.run(
+      prompt.name,
+      prompt.content,
+      prompt.description,
+      prompt.category,
+      prompt.updatedAt,
+      prompt.id
+    )
+  }
+
+  deleteSystemPrompt(id: string): void {
+    const stmt = this.db.prepare('DELETE FROM system_prompts WHERE id = ?')
+    stmt.run(id)
+  }
+
+  getSystemPrompt(id: string): SystemPrompt | undefined {
+    const stmt = this.db.prepare('SELECT * FROM system_prompts WHERE id = ?')
+    return stmt.get(id) as SystemPrompt | undefined
+  }
+
+  getAllSystemPrompts(): SystemPrompt[] {
+    const stmt = this.db.prepare('SELECT * FROM system_prompts ORDER BY name ASC')
+    return stmt.all() as SystemPrompt[]
   }
 }
