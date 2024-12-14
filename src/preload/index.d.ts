@@ -122,6 +122,15 @@ declare global {
           error?: string
         }>
       }
+      generateCode: (prompt: string) => Promise<{
+        success: boolean
+        data?: {
+          code: string
+          language: string
+          componentName: string
+        }
+        error?: string
+      }>
     }
   }
 }

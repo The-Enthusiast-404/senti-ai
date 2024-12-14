@@ -22,7 +22,8 @@ const api = {
     create: (prompt) => ipcRenderer.invoke('systemPrompt:create', prompt),
     update: (id, updates) => ipcRenderer.invoke('systemPrompt:update', id, updates),
     delete: (id) => ipcRenderer.invoke('systemPrompt:delete', id)
-  }
+  },
+  generateCode: (prompt: string) => ipcRenderer.invoke('code:generate', prompt)
 }
 
 if (process.contextIsolated) {

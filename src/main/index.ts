@@ -5,6 +5,7 @@ import icon from '../../resources/icon.png?asset'
 import { OllamaService } from './services/ollama'
 import dotenv from 'dotenv'
 import path from 'path'
+import { CodeGenerationService } from './services/codeGeneration'
 
 // Load environment variables from .env file
 dotenv.config({
@@ -17,6 +18,7 @@ if (!process.env.BRAVE_API_KEY) {
 }
 
 const ollamaService = new OllamaService()
+const codeGenerationService = new CodeGenerationService()
 
 function createWindow(): void {
   // Create the browser window.
@@ -223,6 +225,16 @@ app.whenReady().then(() => {
     try {
       await ollamaService.deleteSystemPrompt(id)
       return { success: true }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('code:generate', async (_, prompt: string) => {
+    try {
+      const result = await codeGenerationService.generateComponent(prompt)
+      return { success: true, data: result }
     } catch (err) {
       const error = err instanceof Error ? err.message : 'Unknown error occurred'
       return { success: false, error }

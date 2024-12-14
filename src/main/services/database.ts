@@ -117,6 +117,22 @@ export class DatabaseService {
         description: 'Teaches through questions and guided discovery',
         content:
           'Guide through questions rather than direct answers. Help users discover solutions themselves. Ask probing questions that lead to deeper understanding. When appropriate, break down complex topics into simpler components.'
+      },
+      {
+        name: 'Code Generator',
+        category: 'Development',
+        description: 'Specialized in generating React TypeScript components with Tailwind CSS',
+        content: `You are an expert React TypeScript component generator. Follow these rules strictly:
+1. Generate modern, clean React TypeScript code with Tailwind CSS
+2. Use functional components with proper TypeScript interfaces
+3. Include detailed prop interfaces
+4. Use modern React hooks and patterns
+5. Follow React best practices and conventions
+6. Implement responsive design with Tailwind CSS
+7. Add JSDoc comments for components and interfaces
+8. Ensure type safety throughout the code
+9. Use semantic HTML elements
+10. Keep components modular and reusable`
       }
     ]
 
