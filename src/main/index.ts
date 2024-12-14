@@ -189,6 +189,46 @@ app.whenReady().then(() => {
     }
   })
 
+  ipcMain.handle('systemPrompt:getAll', async () => {
+    try {
+      const prompts = await ollamaService.getSystemPrompts()
+      return { success: true, data: prompts }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('systemPrompt:create', async (_, prompt) => {
+    try {
+      const newPrompt = await ollamaService.createSystemPrompt(prompt)
+      return { success: true, data: newPrompt }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('systemPrompt:update', async (_, id, updates) => {
+    try {
+      const updated = await ollamaService.updateSystemPrompt(id, updates)
+      return { success: true, data: updated }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('systemPrompt:delete', async (_, id) => {
+    try {
+      await ollamaService.deleteSystemPrompt(id)
+      return { success: true }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
   createWindow()
 
   app.on('activate', function () {

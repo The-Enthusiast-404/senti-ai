@@ -19,6 +19,16 @@ export interface Chat {
   updatedAt: string
 }
 
+export interface SystemPrompt {
+  id: string
+  name: string
+  content: string
+  description: string
+  category: string
+  createdAt: string
+  updatedAt: string
+}
+
 export class DatabaseService {
   private db: Database.Database
 
@@ -50,6 +60,19 @@ export class DatabaseService {
         type TEXT NOT NULL DEFAULT 'text',
         createdAt TEXT NOT NULL,
         FOREIGN KEY (chatId) REFERENCES chats(id) ON DELETE CASCADE
+      )
+    `)
+
+    // Create system prompts table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS system_prompts (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        content TEXT NOT NULL,
+        description TEXT,
+        category TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
       )
     `)
   }
@@ -118,5 +141,44 @@ export class DatabaseService {
       WHERE id = ?
     `)
     stmt.run(newTitle, new Date().toISOString(), chatId)
+  }
+
+  createSystemPrompt(prompt: SystemPrompt): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO system_prompts (id, name, content, description, category, createdAt, updatedAt)
+      VALUES (@id, @name, @content, @description, @category, @createdAt, @updatedAt)
+    `)
+    stmt.run(prompt)
+  }
+
+  updateSystemPrompt(prompt: SystemPrompt): void {
+    const stmt = this.db.prepare(`
+      UPDATE system_prompts 
+      SET name = ?, content = ?, description = ?, category = ?, updatedAt = ?
+      WHERE id = ?
+    `)
+    stmt.run(
+      prompt.name,
+      prompt.content,
+      prompt.description,
+      prompt.category,
+      prompt.updatedAt,
+      prompt.id
+    )
+  }
+
+  deleteSystemPrompt(id: string): void {
+    const stmt = this.db.prepare('DELETE FROM system_prompts WHERE id = ?')
+    stmt.run(id)
+  }
+
+  getSystemPrompt(id: string): SystemPrompt | undefined {
+    const stmt = this.db.prepare('SELECT * FROM system_prompts WHERE id = ?')
+    return stmt.get(id) as SystemPrompt | undefined
+  }
+
+  getAllSystemPrompts(): SystemPrompt[] {
+    const stmt = this.db.prepare('SELECT * FROM system_prompts ORDER BY name ASC')
+    return stmt.all() as SystemPrompt[]
   }
 }

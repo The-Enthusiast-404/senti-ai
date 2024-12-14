@@ -6,7 +6,11 @@ declare global {
     api: {
       chat: (params: {
         chatId: string | null
-        messages: { role: 'user' | 'assistant'; content: string; type: 'text' | 'image' }[]
+        messages: {
+          role: 'user' | 'assistant' | 'system'
+          content: string
+          type: 'text' | 'image'
+        }[]
       }) => Promise<{
         success: boolean
         data?: {
@@ -66,7 +70,7 @@ declare global {
       chatWithRAG: (params: {
         chatId: string | null
         messages: {
-          role: 'user' | 'assistant'
+          role: 'user' | 'assistant' | 'system'
           content: string
           type: 'text' | 'image'
         }[]
@@ -81,7 +85,7 @@ declare global {
       chatWithWebRAG: (params: {
         chatId: string | null
         messages: {
-          role: 'user' | 'assistant'
+          role: 'user' | 'assistant' | 'system'
           content: string
           type: 'text' | 'image'
         }[]
@@ -94,6 +98,30 @@ declare global {
         error?: string
       }>
       removeProcessedFile: (fileId: string) => Promise<{ success: boolean; error?: string }>
+      systemPrompt: {
+        getAll: () => Promise<{
+          success: boolean
+          data?: SystemPrompt[]
+          error?: string
+        }>
+        create: (prompt: Omit<SystemPrompt, 'id' | 'createdAt' | 'updatedAt'>) => Promise<{
+          success: boolean
+          data?: SystemPrompt
+          error?: string
+        }>
+        update: (
+          id: string,
+          updates: Partial<SystemPrompt>
+        ) => Promise<{
+          success: boolean
+          data?: SystemPrompt
+          error?: string
+        }>
+        delete: (id: string) => Promise<{
+          success: boolean
+          error?: string
+        }>
+      }
     }
   }
 }

@@ -8,9 +8,10 @@ import { RunnableSequence } from '@langchain/core/runnables'
 import { formatDocumentsAsString } from 'langchain/util/document'
 import { ProcessedDocument } from './documentProcessor'
 import { WebSearchService } from './webSearch'
+import { SystemPrompt } from './database'
 
 interface Message {
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: string
   type: 'text' | 'image'
 }
@@ -50,72 +51,50 @@ export class OllamaService {
   }
 
   async chat(chatId: string | null, messages: Message[]) {
-    const formattedMessages: BaseMessage[] = messages.map((msg) => {
-      if (msg.role === 'user') {
-        if (msg.type === 'image') {
-          return new HumanMessage({
-            content: [
-              {
-                type: 'image_url',
-                image_url: msg.content
-              }
-            ]
-          })
-        }
-        return new HumanMessage(msg.content)
-      }
-      return new AIMessage(msg.content)
-    })
+    const systemMessage = messages.find((m) => m.role === 'system')
+    const userMessages = messages.filter((m) => m.role !== 'system')
 
-    const response = await this.model.call(formattedMessages)
-
-    // If no chatId provided, create a new chat
-    if (!chatId) {
-      chatId = uuidv4()
-      const chat = {
-        id: chatId,
-        title: messages[0].content.slice(0, 50) + '...',
+    let newChatId = chatId
+    if (!newChatId) {
+      newChatId = uuidv4()
+      await this.db.createChat({
+        id: newChatId,
+        title: userMessages[userMessages.length - 1].content.slice(0, 50) + '...',
         model: this.model.model,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      }
-      this.db.createChat(chat)
-    } else {
-      // Update existing chat
-      const chat = this.db.getChat(chatId)
-      if (chat) {
-        this.db.updateChat({
-          ...chat,
-          updatedAt: new Date().toISOString()
-        })
-      }
+      })
     }
 
-    // Save the user's message
-    const userMessage = {
-      id: uuidv4(),
-      chatId,
-      role: 'user' as const,
-      content: messages[messages.length - 1].content,
-      type: messages[messages.length - 1].type || 'text',
-      createdAt: new Date().toISOString()
-    }
-    this.db.addMessage(userMessage)
+    const prompt = systemMessage
+      ? `${systemMessage.content}\n\nUser: ${userMessages[userMessages.length - 1].content}`
+      : userMessages[userMessages.length - 1].content
 
-    // Save the assistant's message
-    const assistantMessage = {
+    const chain = RunnableSequence.from([this.model, new StringOutputParser()])
+    const response = await chain.invoke(prompt)
+
+    // Save messages to database
+    await this.db.addMessage({
       id: uuidv4(),
-      chatId,
-      role: 'assistant' as const,
-      content: String(response.content),
-      type: 'text' as const,
+      chatId: newChatId,
+      role: 'user',
+      content: userMessages[userMessages.length - 1].content,
+      type: 'text',
       createdAt: new Date().toISOString()
-    }
-    this.db.addMessage(assistantMessage)
+    })
+
+    await this.db.addMessage({
+      id: uuidv4(),
+      chatId: newChatId,
+      role: 'assistant',
+      content: response,
+      type: 'text',
+      createdAt: new Date().toISOString()
+    })
 
     return {
-      chatId,
-      content: response.content
+      chatId: newChatId,
+      content: response
     }
   }
 
@@ -287,5 +266,43 @@ Instructions:
 
   async removeProcessedFile(fileId: string): Promise<void> {
     await this.documentProcessor.deleteDocument(fileId)
+  }
+
+  async getSystemPrompts(): Promise<SystemPrompt[]> {
+    return this.db.getAllSystemPrompts()
+  }
+
+  async createSystemPrompt(
+    prompt: Omit<SystemPrompt, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<SystemPrompt> {
+    const now = new Date().toISOString()
+    const newPrompt: SystemPrompt = {
+      ...prompt,
+      id: uuidv4(),
+      createdAt: now,
+      updatedAt: now
+    }
+    this.db.createSystemPrompt(newPrompt)
+    return newPrompt
+  }
+
+  async updateSystemPrompt(id: string, updates: Partial<SystemPrompt>): Promise<SystemPrompt> {
+    const existing = this.db.getSystemPrompt(id)
+    if (!existing) {
+      throw new Error('System prompt not found')
+    }
+
+    const updated: SystemPrompt = {
+      ...existing,
+      ...updates,
+      id,
+      updatedAt: new Date().toISOString()
+    }
+    this.db.updateSystemPrompt(updated)
+    return updated
+  }
+
+  async deleteSystemPrompt(id: string): Promise<void> {
+    this.db.deleteSystemPrompt(id)
   }
 }

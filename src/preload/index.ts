@@ -16,7 +16,13 @@ const api = {
   generateImage: (prompt: string) => ipcRenderer.invoke('image:generate', prompt),
   processFile: (filePath: string) => ipcRenderer.invoke('document:process', filePath),
   chatWithRAG: (params) => ipcRenderer.invoke('ollama:chatWithRAG', params),
-  chatWithWebRAG: (params) => ipcRenderer.invoke('ollama:chatWithWebRAG', params)
+  chatWithWebRAG: (params) => ipcRenderer.invoke('ollama:chatWithWebRAG', params),
+  systemPrompt: {
+    getAll: () => ipcRenderer.invoke('systemPrompt:getAll'),
+    create: (prompt) => ipcRenderer.invoke('systemPrompt:create', prompt),
+    update: (id, updates) => ipcRenderer.invoke('systemPrompt:update', id, updates),
+    delete: (id) => ipcRenderer.invoke('systemPrompt:delete', id)
+  }
 }
 
 if (process.contextIsolated) {
