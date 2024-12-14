@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
+import { v4 as uuidv4 } from 'uuid'
 
 export interface ChatMessage {
   id: string
@@ -75,6 +76,65 @@ export class DatabaseService {
         updatedAt TEXT NOT NULL
       )
     `)
+
+    // Initialize default prompts
+    this.initializeDefaultPrompts()
+  }
+
+  private initializeDefaultPrompts(): void {
+    const defaultPrompts: Omit<SystemPrompt, 'id' | 'createdAt' | 'updatedAt'>[] = [
+      {
+        name: 'Code Assistant',
+        category: 'Development',
+        description: 'Specialized in writing and explaining code',
+        content:
+          'You are an expert programming assistant. Focus on providing clean, well-documented code examples. Always explain your code and suggest best practices. If you notice potential issues or optimizations, point them out.'
+      },
+      {
+        name: 'Technical Writer',
+        category: 'Writing',
+        description: 'Helps with technical documentation and explanations',
+        content:
+          'You are a technical writing expert. Focus on clarity, accuracy, and structure. Use simple language to explain complex concepts. Include examples where helpful. Format your responses with clear headings and bullet points when appropriate.'
+      },
+      {
+        name: 'Math Tutor',
+        category: 'Education',
+        description: 'Helps with mathematical concepts and problem-solving',
+        content:
+          'You are a patient and thorough mathematics tutor. Break down complex problems into steps, explain your reasoning clearly, and provide additional examples when needed. Use LaTeX notation for mathematical expressions when appropriate.'
+      },
+      {
+        name: 'Concise Mode',
+        category: 'General',
+        description: 'Provides brief, to-the-point responses',
+        content:
+          'Provide brief, concise responses. Be direct and get to the point quickly. Avoid unnecessary explanations unless specifically asked.'
+      },
+      {
+        name: 'Socratic Teacher',
+        category: 'Education',
+        description: 'Teaches through questions and guided discovery',
+        content:
+          'Guide through questions rather than direct answers. Help users discover solutions themselves. Ask probing questions that lead to deeper understanding. When appropriate, break down complex topics into simpler components.'
+      }
+    ]
+
+    // Add each default prompt if it doesn't exist
+    for (const prompt of defaultPrompts) {
+      const exists = this.db
+        .prepare('SELECT id FROM system_prompts WHERE name = ?')
+        .get(prompt.name)
+      if (!exists) {
+        const now = new Date().toISOString()
+        this.createSystemPrompt({
+          ...prompt,
+          id: uuidv4(),
+          createdAt: now,
+          updatedAt: now
+        })
+      }
+    }
   }
 
   createChat(chat: Chat): void {
