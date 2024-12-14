@@ -37,10 +37,6 @@ The motive of this project is to build a Google AI studio like experience on des
 - Multiple vector DB support (ChromaDB, FAISS)
 - Citation support with direct links to sources
 - Follow-up questions suggestions
-- Real-time information synthesis
-- Custom knowledge base creation
-- Search result summarization
-- Academic paper analysis
 
 ### Phase 3: v0.dev-like Features
 
