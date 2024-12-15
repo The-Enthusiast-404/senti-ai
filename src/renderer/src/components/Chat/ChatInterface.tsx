@@ -6,6 +6,7 @@ import FileUpload from './FileUpload'
 import ContextSources from './ContextSources'
 import SystemPromptManager from '../SystemPrompts/SystemPromptManager'
 import CodeGenerator from '../CodeGeneration/CodeGenerator'
+import StockViewer from '../Stocks/StockViewer'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -48,6 +49,7 @@ export default function ChatInterface() {
   const [showSystemPrompts, setShowSystemPrompts] = useState(false)
   const [selectedSystemPrompt, setSelectedSystemPrompt] = useState<SystemPrompt | null>(null)
   const [showCodeGenerator, setShowCodeGenerator] = useState(false)
+  const [showStockViewer, setShowStockViewer] = useState(false)
 
   useEffect(() => {
     loadChats()
@@ -644,6 +646,19 @@ export default function ChatInterface() {
                   </svg>
                 </button>
                 <button
+                  onClick={() => setShowStockViewer(!showStockViewer)}
+                  className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M16 8v8m-4-5v5M8 8v8m-4-5v5m0-5h18"
+                    />
+                  </svg>
+                </button>
+                <button
                   type="submit"
                   className={`px-6 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     isLoading
@@ -684,6 +699,14 @@ export default function ChatInterface() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-gray-900 rounded-lg w-3/4 h-[80vh]">
             <CodeGenerator />
+          </div>
+        </div>
+      )}
+
+      {showStockViewer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-900 rounded-lg w-3/4 h-[80vh]">
+            <StockViewer onClose={() => setShowStockViewer(false)} />
           </div>
         </div>
       )}

@@ -13,8 +13,8 @@ dotenv.config({
 })
 
 // Validate required environment variables
-if (!process.env.BRAVE_API_KEY) {
-  console.error('BRAVE_API_KEY is required in .env file')
+if (!process.env.BRAVE_API_KEY || !process.env.POLYGON_API_KEY) {
+  console.error('BRAVE_API_KEY and POLYGON_API_KEY are required in .env file')
 }
 
 const ollamaService = new OllamaService()
@@ -236,6 +236,43 @@ app.whenReady().then(() => {
       const result = await codeGenerationService.generateComponent(prompt)
       return { success: true, data: result }
     } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('stock:getData', async (_, ticker: string) => {
+    try {
+      console.log('Fetching stock data for:', ticker)
+      const response = await fetch(
+        `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/2023-01-09/2023-01-09?apiKey=${process.env.POLYGON_API_KEY}`
+      )
+      const data = await response.json()
+      console.log('API Response:', JSON.stringify(data, null, 2))
+
+      if (!response.ok) {
+        throw new Error(data.error || `API Error: ${response.status} ${response.statusText}`)
+      }
+
+      if (!data.results || data.results.length === 0) {
+        throw new Error('No data available for this ticker')
+      }
+
+      const result = data.results[0]
+      const stockData = {
+        ticker: ticker,
+        price: result.c || 0, // closing price
+        highPrice: result.h || 0, // high price
+        lowPrice: result.l || 0, // low price
+        previousClose: result.o || 0, // opening price as previous close
+        percentChange: ((result.c - result.o) / result.o) * 100, // calculate percent change
+        volume: result.v || 0, // volume
+        lastUpdated: new Date(result.t).toLocaleString() // timestamp
+      }
+
+      return { success: true, data: stockData }
+    } catch (err) {
+      console.error('Stock API Error:', err)
       const error = err instanceof Error ? err.message : 'Unknown error occurred'
       return { success: false, error }
     }
