@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import StockChart from './StockChart'
+import ReactMarkdown from 'react-markdown'
 
 interface StockViewerProps {
   onClose: () => void
@@ -47,7 +49,7 @@ export default function StockViewer({ onClose }: StockViewerProps) {
         </button>
       </div>
 
-      <div className="p-4">
+      <div className="p-4 overflow-y-auto">
         <form onSubmit={handleSubmit} className="flex gap-4 mb-6">
           <input
             type="text"
@@ -86,47 +88,61 @@ export default function StockViewer({ onClose }: StockViewerProps) {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-gray-800/50 p-4 rounded-lg">
-                <h4 className="text-gray-400 text-sm">Previous Close</h4>
-                <p className="text-lg">${stockData.previousClose.toFixed(2)}</p>
-              </div>
-              <div className="bg-gray-800/50 p-4 rounded-lg">
-                <h4 className="text-gray-400 text-sm">Day Range</h4>
-                <p className="text-lg">{stockData.dayRange}</p>
-              </div>
-              <div className="bg-gray-800/50 p-4 rounded-lg">
-                <h4 className="text-gray-400 text-sm">Volume</h4>
-                <p className="text-lg">{stockData.volume.toLocaleString()}</p>
-              </div>
-              <div className="bg-gray-800/50 p-4 rounded-lg">
-                <h4 className="text-gray-400 text-sm">Market Cap</h4>
-                <p className="text-lg">
-                  {stockData.marketCap ? `$${(stockData.marketCap / 1e9).toFixed(2)}B` : 'N/A'}
-                </p>
-              </div>
-              <div className="bg-gray-800/50 p-4 rounded-lg">
-                <h4 className="text-gray-400 text-sm">Year Range</h4>
-                <p className="text-lg">{stockData.yearRange}</p>
-              </div>
-              <div className="bg-gray-800/50 p-4 rounded-lg">
-                <h4 className="text-gray-400 text-sm">P/E Ratio</h4>
-                <p className="text-lg">{stockData.peRatio || 'N/A'}</p>
-              </div>
-              <div className="bg-gray-800/50 p-4 rounded-lg">
-                <h4 className="text-gray-400 text-sm">Avg Volume</h4>
-                <p className="text-lg">
-                  {stockData.avgVolume ? stockData.avgVolume.toLocaleString() : 'N/A'}
-                </p>
-              </div>
-              <div className="bg-gray-800/50 p-4 rounded-lg">
-                <h4 className="text-gray-400 text-sm">Dividend Yield</h4>
-                <p className="text-lg">{stockData.dividend ? `${stockData.dividend}%` : 'N/A'}</p>
-              </div>
+            <div className="bg-gray-800/50 p-4 rounded-lg">
+              <StockChart data={stockData.chartData} />
             </div>
 
-            <div className="text-gray-400 text-sm text-right">
-              Last updated: {stockData.lastUpdated}
+            <div className="bg-gray-800/50 p-6 rounded-lg space-y-4">
+              <h3 className="text-xl font-semibold mb-4">Market Analysis</h3>
+
+              <div className="space-y-3">
+                <p className="text-gray-200">{stockData.aiSummary.currentStatus}</p>
+                <p className="text-gray-200">{stockData.aiSummary.recentPerformance}</p>
+                <p className="text-gray-200">{stockData.aiSummary.marketContext}</p>
+              </div>
+
+              <div className="mt-4">
+                <h4 className="text-lg font-semibold mb-3">Key Metrics</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {stockData.aiSummary.keyMetrics.map((metric, index) => (
+                    <div key={index} className="bg-gray-700/50 p-3 rounded">
+                      <div className="text-gray-400 text-sm">{metric.label}</div>
+                      <div className="text-lg font-semibold">{metric.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <h4 className="text-lg font-semibold mb-3">Recent News Analysis</h4>
+                <div className="bg-gray-700/50 p-4 rounded">
+                  <ReactMarkdown className="text-gray-200 prose prose-invert max-w-none">
+                    {stockData.aiSummary.newsSummary}
+                  </ReactMarkdown>
+                </div>
+
+                <div className="mt-4 space-y-4">
+                  {stockData.news.map((item, index) => (
+                    <div key={index} className="bg-gray-700/50 p-4 rounded">
+                      <h5 className="font-semibold mb-2">{item.title}</h5>
+                      <p className="text-gray-400 text-sm mb-2">{item.description}</p>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-500">
+                          {item.publisher} • {item.date}
+                        </span>
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300"
+                        >
+                          Read more →
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}

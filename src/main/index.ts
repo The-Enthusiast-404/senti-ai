@@ -6,6 +6,7 @@ import { OllamaService } from './services/ollama'
 import dotenv from 'dotenv'
 import path from 'path'
 import { CodeGenerationService } from './services/codeGeneration'
+import { WebSearchService } from './services/webSearch'
 
 // Load environment variables from .env file
 dotenv.config({
@@ -19,6 +20,7 @@ if (!process.env.BRAVE_API_KEY || !process.env.POLYGON_API_KEY) {
 
 const ollamaService = new OllamaService()
 const codeGenerationService = new CodeGenerationService()
+const webSearchService = new WebSearchService(process.env.BRAVE_API_KEY || '')
 
 function createWindow(): void {
   // Create the browser window.
@@ -244,7 +246,6 @@ app.whenReady().then(() => {
   ipcMain.handle('stock:getData', async (_, ticker: string) => {
     try {
       console.log('Fetching stock data for:', ticker)
-      // Get today's date and previous trading day
       const today = new Date()
       const thirtyDaysAgo = new Date(today)
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
@@ -252,24 +253,82 @@ app.whenReady().then(() => {
       const todayStr = today.toISOString().split('T')[0]
       const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0]
 
-      const response = await fetch(
+      // Fetch stock data
+      const stockResponse = await fetch(
         `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${thirtyDaysAgoStr}/${todayStr}?adjusted=true&sort=desc&limit=30&apiKey=${process.env.POLYGON_API_KEY}`
       )
-      const data = await response.json()
-      console.log('API Response:', JSON.stringify(data, null, 2))
+      const stockData = await stockResponse.json()
 
-      if (!response.ok) {
-        throw new Error(data.error || `API Error: ${response.status} ${response.statusText}`)
+      // Fetch company-specific news
+      const searchQuery = `${ticker} stock news analysis (site:bloomberg.com OR site:reuters.com OR site:cnbc.com OR site:marketwatch.com OR site:finance.yahoo.com) when:7d`
+      const searchResults = await webSearchService.search(searchQuery, 5)
+
+      const newsArticles = searchResults.map((result) => ({
+        title: result.metadata.title,
+        description: result.pageContent,
+        url: result.metadata.source,
+        date: new Date().toLocaleDateString(), // Brave doesn't provide article dates
+        publisher: result.metadata.domain
+      }))
+
+      // Get news articles content for AI summarization
+      const newsTexts = newsArticles
+        .map((article) => `Title: ${article.title}\nSummary: ${article.description}`)
+        .join('\n\n')
+
+      // Generate AI summary of news using Ollama
+      const newsContext = await ollamaService.generateResponse(
+        `You are a financial analyst providing a structured analysis of ${ticker} stock based ONLY on the following news articles. DO NOT include any external knowledge or historical information not mentioned in these articles.
+
+Format your response using markdown:
+
+# Recent Developments
+- List 2-3 key business developments mentioned in these articles
+- Include specific dates when mentioned
+- Explain their direct impact on stock performance
+
+# Company Strategy
+- Only include strategic changes mentioned in these specific articles
+- Quote or reference specific announcements when possible
+
+# Market Sentiment
+- Only include analyst ratings/targets mentioned in these articles
+- Note recent changes in market perception based on provided news
+
+# Risks & Opportunities
+- List only risks/opportunities explicitly mentioned in these articles
+
+If any section lacks information from the provided articles, state "*No recent information available in provided news.*"`,
+        newsTexts
+      )
+
+      if (!stockResponse.ok) {
+        throw new Error(stockData.error || `API Error: ${stockResponse.status}`)
       }
 
-      if (!data.results || data.results.length === 0) {
+      if (!stockData.results || stockData.results.length === 0) {
         throw new Error('No data available for this ticker')
       }
 
-      const latestResult = data.results[0]
-      const previousResult = data.results[1] || latestResult
+      const latestResult = stockData.results[0]
+      const previousResult = stockData.results[1] || latestResult
 
-      const stockData = {
+      // Fetch company details from Polygon API for accurate market cap
+      const companyResponse = await fetch(
+        `https://api.polygon.io/v3/reference/tickers/${ticker}?apiKey=${process.env.POLYGON_API_KEY}`
+      )
+      const companyData = await companyResponse.json()
+
+      // Calculate market cap using shares outstanding from company data
+      const marketCap = companyData.results?.market_cap || 0
+
+      // Format chart data
+      const chartData = stockData.results.reverse().map((result) => ({
+        date: new Date(result.t).toLocaleDateString(),
+        price: result.c
+      }))
+
+      const stockInfo = {
         ticker: ticker,
         price: latestResult.c,
         highPrice: latestResult.h,
@@ -278,15 +337,48 @@ app.whenReady().then(() => {
         percentChange: ((latestResult.c - previousResult.c) / previousResult.c) * 100,
         volume: latestResult.v,
         lastUpdated: new Date(latestResult.t).toLocaleString(),
-        marketCap: 0,
+        marketCap: marketCap,
         dayRange: `$${latestResult.l.toFixed(2)} - $${latestResult.h.toFixed(2)}`,
         yearRange: '0 - 0',
-        avgVolume: Math.round(data.results.reduce((sum, r) => sum + r.v, 0) / data.results.length),
+        avgVolume: Math.round(
+          stockData.results.reduce((sum, r) => sum + r.v, 0) / stockData.results.length
+        ),
         peRatio: 0,
-        dividend: 0
+        dividend: 0,
+        chartData,
+        news: newsArticles.map((item) => ({
+          title: item.title,
+          description: item.description,
+          url: item.url,
+          date: new Date(item.date).toLocaleDateString(),
+          publisher: item.publisher
+        })),
+        aiSummary: {
+          currentStatus: `${ticker} shares are currently trading at $${latestResult.c.toFixed(2)}, ${
+            latestResult.c > previousResult.c ? 'up' : 'down'
+          } ${Math.abs(((latestResult.c - previousResult.c) / previousResult.c) * 100).toFixed(2)}% from the previous close.`,
+          recentPerformance: `The stock has shown notable fluctuations throughout the trading period, with a low of $${latestResult.l.toFixed(
+            2
+          )} and a high of $${latestResult.h.toFixed(2)}.`,
+          marketContext: `With a market capitalization of $${(marketCap / 1e9).toFixed(2)} billion, ${ticker} ${
+            marketCap > 200e9
+              ? 'maintains its position as one of the significant players in the market'
+              : 'continues to show presence in the market'
+          }.`,
+          newsSummary: newsContext.message.content,
+          keyMetrics: [
+            { label: 'Current Price', value: `$${latestResult.c.toFixed(2)}` },
+            {
+              label: "Day's Range",
+              value: `$${latestResult.l.toFixed(2)} - $${latestResult.h.toFixed(2)}`
+            },
+            { label: 'Market Cap', value: `$${(marketCap / 1e9).toFixed(2)}B` },
+            { label: 'Volume', value: latestResult.v.toLocaleString() }
+          ]
+        }
       }
 
-      return { success: true, data: stockData }
+      return { success: true, data: stockInfo }
     } catch (err) {
       console.error('Stock API Error:', err)
       const error = err instanceof Error ? err.message : 'Unknown error occurred'
