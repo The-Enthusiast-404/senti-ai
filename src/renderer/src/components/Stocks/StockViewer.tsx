@@ -73,37 +73,60 @@ export default function StockViewer({ onClose }: StockViewerProps) {
         {error && <div className="text-red-400 mb-4 p-4 bg-red-900/20 rounded-lg">{error}</div>}
 
         {stockData && (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gray-800 p-4 rounded-lg">
-              <h3 className="text-gray-400 mb-2">Current Price</h3>
-              <p className="text-2xl font-semibold">${stockData.price.toFixed(2)}</p>
-            </div>
-            <div className="bg-gray-800 p-4 rounded-lg">
-              <h3 className="text-gray-400 mb-2">Change</h3>
-              <p
-                className={`text-2xl font-semibold ${
+          <div className="space-y-6">
+            <div className="flex items-baseline gap-4">
+              <h3 className="text-3xl font-bold">${stockData.price.toFixed(2)}</h3>
+              <span
+                className={`text-xl font-semibold ${
                   stockData.percentChange >= 0 ? 'text-green-500' : 'text-red-500'
                 }`}
               >
                 {stockData.percentChange >= 0 ? '+' : ''}
                 {stockData.percentChange.toFixed(2)}%
-              </p>
+              </span>
             </div>
-            <div className="bg-gray-800 p-4 rounded-lg">
-              <h3 className="text-gray-400 mb-2">Day High</h3>
-              <p className="text-xl">${stockData.highPrice.toFixed(2)}</p>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-gray-800/50 p-4 rounded-lg">
+                <h4 className="text-gray-400 text-sm">Previous Close</h4>
+                <p className="text-lg">${stockData.previousClose.toFixed(2)}</p>
+              </div>
+              <div className="bg-gray-800/50 p-4 rounded-lg">
+                <h4 className="text-gray-400 text-sm">Day Range</h4>
+                <p className="text-lg">{stockData.dayRange}</p>
+              </div>
+              <div className="bg-gray-800/50 p-4 rounded-lg">
+                <h4 className="text-gray-400 text-sm">Volume</h4>
+                <p className="text-lg">{stockData.volume.toLocaleString()}</p>
+              </div>
+              <div className="bg-gray-800/50 p-4 rounded-lg">
+                <h4 className="text-gray-400 text-sm">Market Cap</h4>
+                <p className="text-lg">
+                  {stockData.marketCap ? `$${(stockData.marketCap / 1e9).toFixed(2)}B` : 'N/A'}
+                </p>
+              </div>
+              <div className="bg-gray-800/50 p-4 rounded-lg">
+                <h4 className="text-gray-400 text-sm">Year Range</h4>
+                <p className="text-lg">{stockData.yearRange}</p>
+              </div>
+              <div className="bg-gray-800/50 p-4 rounded-lg">
+                <h4 className="text-gray-400 text-sm">P/E Ratio</h4>
+                <p className="text-lg">{stockData.peRatio || 'N/A'}</p>
+              </div>
+              <div className="bg-gray-800/50 p-4 rounded-lg">
+                <h4 className="text-gray-400 text-sm">Avg Volume</h4>
+                <p className="text-lg">
+                  {stockData.avgVolume ? stockData.avgVolume.toLocaleString() : 'N/A'}
+                </p>
+              </div>
+              <div className="bg-gray-800/50 p-4 rounded-lg">
+                <h4 className="text-gray-400 text-sm">Dividend Yield</h4>
+                <p className="text-lg">{stockData.dividend ? `${stockData.dividend}%` : 'N/A'}</p>
+              </div>
             </div>
-            <div className="bg-gray-800 p-4 rounded-lg">
-              <h3 className="text-gray-400 mb-2">Day Low</h3>
-              <p className="text-xl">${stockData.lowPrice.toFixed(2)}</p>
-            </div>
-            <div className="bg-gray-800 p-4 rounded-lg">
-              <h3 className="text-gray-400 mb-2">Volume</h3>
-              <p className="text-xl">{stockData.volume.toLocaleString()}</p>
-            </div>
-            <div className="bg-gray-800 p-4 rounded-lg">
-              <h3 className="text-gray-400 mb-2">Previous Close</h3>
-              <p className="text-xl">${stockData.previousClose.toFixed(2)}</p>
+
+            <div className="text-gray-400 text-sm text-right">
+              Last updated: {stockData.lastUpdated}
             </div>
           </div>
         )}

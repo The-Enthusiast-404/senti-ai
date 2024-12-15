@@ -244,8 +244,16 @@ app.whenReady().then(() => {
   ipcMain.handle('stock:getData', async (_, ticker: string) => {
     try {
       console.log('Fetching stock data for:', ticker)
+      // Get today's date and previous trading day
+      const today = new Date()
+      const thirtyDaysAgo = new Date(today)
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+      const todayStr = today.toISOString().split('T')[0]
+      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0]
+
       const response = await fetch(
-        `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/2023-01-09/2023-01-09?apiKey=${process.env.POLYGON_API_KEY}`
+        `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${thirtyDaysAgoStr}/${todayStr}?adjusted=true&sort=desc&limit=30&apiKey=${process.env.POLYGON_API_KEY}`
       )
       const data = await response.json()
       console.log('API Response:', JSON.stringify(data, null, 2))
@@ -258,16 +266,24 @@ app.whenReady().then(() => {
         throw new Error('No data available for this ticker')
       }
 
-      const result = data.results[0]
+      const latestResult = data.results[0]
+      const previousResult = data.results[1] || latestResult
+
       const stockData = {
         ticker: ticker,
-        price: result.c || 0, // closing price
-        highPrice: result.h || 0, // high price
-        lowPrice: result.l || 0, // low price
-        previousClose: result.o || 0, // opening price as previous close
-        percentChange: ((result.c - result.o) / result.o) * 100, // calculate percent change
-        volume: result.v || 0, // volume
-        lastUpdated: new Date(result.t).toLocaleString() // timestamp
+        price: latestResult.c,
+        highPrice: latestResult.h,
+        lowPrice: latestResult.l,
+        previousClose: previousResult.c,
+        percentChange: ((latestResult.c - previousResult.c) / previousResult.c) * 100,
+        volume: latestResult.v,
+        lastUpdated: new Date(latestResult.t).toLocaleString(),
+        marketCap: 0,
+        dayRange: `$${latestResult.l.toFixed(2)} - $${latestResult.h.toFixed(2)}`,
+        yearRange: '0 - 0',
+        avgVolume: Math.round(data.results.reduce((sum, r) => sum + r.v, 0) / data.results.length),
+        peRatio: 0,
+        dividend: 0
       }
 
       return { success: true, data: stockData }

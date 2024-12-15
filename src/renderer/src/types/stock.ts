@@ -7,4 +7,10 @@ interface StockData {
   percentChange: number
   volume: number
   lastUpdated: string
+  marketCap: number
+  dayRange: string
+  yearRange: string
+  avgVolume: number
+  peRatio: number
+  dividend: number
 }
