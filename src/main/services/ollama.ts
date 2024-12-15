@@ -305,4 +305,16 @@ Instructions:
   async deleteSystemPrompt(id: string): Promise<void> {
     this.db.deleteSystemPrompt(id)
   }
+
+  async generateResponse(
+    systemPrompt: string,
+    userPrompt: string
+  ): Promise<{ message: { content: string } }> {
+    const response = await this.model.invoke([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ])
+
+    return { message: { content: String(response.content) } }
+  }
 }

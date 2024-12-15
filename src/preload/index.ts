@@ -23,7 +23,8 @@ const api = {
     update: (id, updates) => ipcRenderer.invoke('systemPrompt:update', id, updates),
     delete: (id) => ipcRenderer.invoke('systemPrompt:delete', id)
   },
-  generateCode: (prompt: string) => ipcRenderer.invoke('code:generate', prompt)
+  generateCode: (prompt: string) => ipcRenderer.invoke('code:generate', prompt),
+  getStockData: (ticker: string) => ipcRenderer.invoke('stock:getData', ticker)
 }
 
 if (process.contextIsolated) {
