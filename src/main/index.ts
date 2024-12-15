@@ -22,6 +22,131 @@ const ollamaService = new OllamaService()
 const codeGenerationService = new CodeGenerationService()
 const webSearchService = new WebSearchService(process.env.BRAVE_API_KEY || '')
 
+// Add a cache for storing timeframe data
+const stockDataCache = new Map<string, Map<string, any>>()
+
+async function fetchStockData(ticker: string, timeframe: string) {
+  // Check if we have cached data for this ticker
+  if (!stockDataCache.has(ticker)) {
+    stockDataCache.set(ticker, new Map())
+  }
+
+  const tickerCache = stockDataCache.get(ticker)!
+
+  // Always fetch the latest price first
+  const latestPriceData = await fetchTimeframeData(ticker, '1D')
+  const latestPrice = latestPriceData.results?.[latestPriceData.results.length - 1]
+
+  // If we don't have ALL timeframe data, fetch it first
+  if (!tickerCache.has('ALL')) {
+    const allTimeData = await fetchTimeframeData(ticker, 'ALL')
+    tickerCache.set('ALL', {
+      ...allTimeData,
+      latestPrice
+    })
+
+    // Derive other timeframes from ALL data
+    const now = new Date()
+    const allResults = allTimeData.results || []
+
+    // Store derived data for each timeframe
+    const timeframes = ['5D', '1M', '6M', '1Y']
+    timeframes.forEach((tf) => {
+      let startDate = new Date()
+      switch (tf) {
+        case '5D':
+          startDate.setDate(now.getDate() - 5)
+          break
+        case '1M':
+          startDate.setMonth(now.getMonth() - 1)
+          break
+        case '6M':
+          startDate.setMonth(now.getMonth() - 6)
+          break
+        case '1Y':
+          startDate.setFullYear(now.getFullYear() - 1)
+          break
+      }
+
+      const filteredResults = allResults.filter(
+        (result) => new Date(result.t) >= startDate && new Date(result.t) <= now
+      )
+
+      tickerCache.set(tf, {
+        ...allTimeData,
+        results: filteredResults,
+        latestPrice
+      })
+    })
+  }
+
+  const timeframeData = tickerCache.get(timeframe) || tickerCache.get('ALL')
+  return {
+    ...timeframeData,
+    latestPrice: latestPrice || timeframeData.results[timeframeData.results.length - 1]
+  }
+}
+
+async function fetchTimeframeData(ticker: string, timeframe: string) {
+  const now = new Date()
+  let startDate = new Date()
+  let interval = '1/day'
+
+  switch (timeframe) {
+    case 'ALL':
+      startDate.setFullYear(now.getFullYear() - 5)
+      interval = '1/day'
+      break
+    case '5D':
+      startDate.setDate(now.getDate() - 5)
+      interval = '15/minute'
+      break
+    case '1M':
+      startDate.setMonth(now.getMonth() - 1)
+      interval = '1/day'
+      break
+    case '6M':
+      startDate.setMonth(now.getMonth() - 6)
+      interval = '1/day'
+      break
+    case '1Y':
+      startDate.setFullYear(now.getFullYear() - 1)
+      interval = '1/day'
+      break
+    default:
+      startDate.setMonth(now.getMonth() - 1)
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/${interval}/${startDate.toISOString().split('T')[0]}/${now.toISOString().split('T')[0]}?adjusted=true&sort=asc&apiKey=${process.env.POLYGON_API_KEY}`
+    )
+
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    if (data.status === 'ERROR') {
+      throw new Error(data.error || 'API returned an error')
+    }
+
+    return {
+      ok: true,
+      results: data.results || [],
+      status: 'SUCCESS'
+    }
+  } catch (error) {
+    console.error('Fetch error:', error)
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch stock data',
+      results: []
+    }
+  }
+}
+
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -243,21 +368,10 @@ app.whenReady().then(() => {
     }
   })
 
-  ipcMain.handle('stock:getData', async (_, ticker: string) => {
+  ipcMain.handle('stock:getData', async (_, { ticker, timeframe = '1M' }) => {
     try {
-      console.log('Fetching stock data for:', ticker)
-      const today = new Date()
-      const thirtyDaysAgo = new Date(today)
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
-      const todayStr = today.toISOString().split('T')[0]
-      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0]
-
-      // Fetch stock data
-      const stockResponse = await fetch(
-        `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${thirtyDaysAgoStr}/${todayStr}?adjusted=true&sort=desc&limit=30&apiKey=${process.env.POLYGON_API_KEY}`
-      )
-      const stockData = await stockResponse.json()
+      console.log('Fetching stock data for:', ticker, 'timeframe:', timeframe)
+      const stockData = await fetchStockData(ticker, timeframe)
 
       // Fetch company-specific news
       const searchQuery = `${ticker} stock news analysis (site:bloomberg.com OR site:reuters.com OR site:cnbc.com OR site:marketwatch.com OR site:finance.yahoo.com) when:7d`
@@ -302,16 +416,16 @@ If any section lacks information from the provided articles, state "*No recent i
         newsTexts
       )
 
-      if (!stockResponse.ok) {
-        throw new Error(stockData.error || `API Error: ${stockResponse.status}`)
+      if (!stockData.ok) {
+        throw new Error(stockData.error || 'Failed to fetch stock data')
       }
 
       if (!stockData.results || stockData.results.length === 0) {
         throw new Error('No data available for this ticker')
       }
 
-      const latestResult = stockData.results[0]
-      const previousResult = stockData.results[1] || latestResult
+      const latestResult = stockData.latestPrice || stockData.results[stockData.results.length - 1]
+      const previousResult = stockData.results[stockData.results.length - 1]
 
       // Fetch company details from Polygon API for accurate market cap
       const companyResponse = await fetch(
@@ -323,7 +437,7 @@ If any section lacks information from the provided articles, state "*No recent i
       const marketCap = companyData.results?.market_cap || 0
 
       // Format chart data
-      const chartData = stockData.results.reverse().map((result) => ({
+      const chartData = stockData.results.map((result) => ({
         date: new Date(result.t).toLocaleDateString(),
         price: result.c
       }))
@@ -334,7 +448,7 @@ If any section lacks information from the provided articles, state "*No recent i
         highPrice: latestResult.h,
         lowPrice: latestResult.l,
         previousClose: previousResult.c,
-        percentChange: ((latestResult.c - previousResult.c) / previousResult.c) * 100,
+        percentChange: ((latestResult.c - stockData.results[0].c) / stockData.results[0].c) * 100,
         volume: latestResult.v,
         lastUpdated: new Date(latestResult.t).toLocaleString(),
         marketCap: marketCap,

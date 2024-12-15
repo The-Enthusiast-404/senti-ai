@@ -6,21 +6,31 @@ interface StockViewerProps {
   onClose: () => void
 }
 
+const timeframes = [
+  { label: '5D', value: '5D' },
+  { label: '1M', value: '1M' },
+  { label: '6M', value: '6M' },
+  { label: '1Y', value: '1Y' },
+  { label: 'ALL', value: 'ALL' }
+]
+
 export default function StockViewer({ onClose }: StockViewerProps) {
   const [ticker, setTicker] = useState('')
+  const [timeframe, setTimeframe] = useState('1M')
   const [stockData, setStockData] = useState<StockData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const fetchStockData = async (selectedTimeframe = timeframe) => {
     if (!ticker.trim() || isLoading) return
-
     setIsLoading(true)
     setError(null)
 
     try {
-      const response = await window.api.getStockData(ticker.toUpperCase())
+      const response = await window.api.getStockData({
+        ticker: ticker.toUpperCase(),
+        timeframe: selectedTimeframe
+      })
       if (response.success && response.data) {
         setStockData(response.data)
       } else {
@@ -32,6 +42,35 @@ export default function StockViewer({ onClose }: StockViewerProps) {
       setIsLoading(false)
     }
   }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!ticker.trim() || isLoading) return
+    await fetchStockData()
+  }
+
+  const handleTimeframeChange = async (newTimeframe: string) => {
+    setTimeframe(newTimeframe)
+    await fetchStockData(newTimeframe)
+  }
+
+  const renderTimeframeSelector = () => (
+    <div className="flex gap-2 mb-4">
+      {timeframes.map(({ label, value }) => (
+        <button
+          key={value}
+          onClick={() => handleTimeframeChange(value)}
+          className={`px-3 py-1 rounded ${
+            timeframe === value
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
 
   return (
     <div className="flex flex-col h-full bg-gray-900 text-gray-100">
@@ -89,7 +128,8 @@ export default function StockViewer({ onClose }: StockViewerProps) {
             </div>
 
             <div className="bg-gray-800/50 p-4 rounded-lg">
-              <StockChart data={stockData.chartData} />
+              {renderTimeframeSelector()}
+              <StockChart data={stockData.chartData} timeframe={timeframe} />
             </div>
 
             <div className="bg-gray-800/50 p-6 rounded-lg space-y-4">
