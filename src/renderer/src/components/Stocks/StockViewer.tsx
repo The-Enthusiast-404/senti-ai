@@ -2,10 +2,6 @@ import { useState } from 'react'
 import StockChart from './StockChart'
 import ReactMarkdown from 'react-markdown'
 
-interface StockViewerProps {
-  onClose: () => void
-}
-
 const timeframes = [
   { label: '5D', value: '5D' },
   { label: '1M', value: '1M' },
@@ -14,7 +10,7 @@ const timeframes = [
   { label: 'ALL', value: 'ALL' }
 ]
 
-export default function StockViewer({ onClose }: StockViewerProps) {
+export default function StockViewer() {
   const [ticker, setTicker] = useState('')
   const [timeframe, setTimeframe] = useState('1M')
   const [stockData, setStockData] = useState<StockData | null>(null)
@@ -76,16 +72,6 @@ export default function StockViewer({ onClose }: StockViewerProps) {
     <div className="flex flex-col h-full bg-gray-900 text-gray-100">
       <div className="flex justify-between items-center p-4 border-b border-gray-800">
         <h2 className="text-xl font-semibold">Stock Data</h2>
-        <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-lg">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
       </div>
 
       <div className="p-4 overflow-y-auto">
