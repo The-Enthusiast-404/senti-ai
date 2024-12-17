@@ -67,16 +67,16 @@ export default function TabManager() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900">
-      <div className="flex items-center bg-gray-800 px-2 py-1 border-b border-gray-700">
+    <div className="flex flex-col h-screen bg-dark">
+      <div className="flex items-center bg-dark-50 px-2 py-1 border-b border-dark-100">
         <div className="flex-1 flex items-center space-x-2 overflow-x-auto">
           {tabs.map((tab) => (
             <div
               key={tab.id}
               className={`group flex items-center px-3 py-2 rounded-t-lg cursor-pointer transition-colors ${
                 activeTabId === tab.id
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                  ? 'bg-dark text-white'
+                  : 'bg-dark-50 text-gray-400 hover:bg-dark-100'
               }`}
               onClick={() => setActiveTab(tab.id)}
             >

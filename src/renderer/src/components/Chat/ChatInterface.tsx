@@ -359,12 +359,12 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
   }
 
   return (
-    <div className="flex h-full bg-gray-900">
+    <div className="flex h-full bg-dark">
       {/* Chat History Sidebar */}
       <div
         className={`${
           tabState.isSidebarOpen ? 'w-64' : 'w-0'
-        } bg-gray-800 transition-all duration-300 overflow-hidden flex flex-col h-full`}
+        } bg-dark-50 transition-all duration-300 overflow-hidden flex flex-col h-full border-r border-dark-100`}
       >
         <div className="flex-none p-4">
           <button
@@ -454,7 +454,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col h-full">
-        <div className="flex-none border-b border-gray-700 p-4 flex items-center justify-between">
+        <div className="flex-none border-b border-dark-100 p-4 flex items-center justify-between bg-dark-50">
           <div className="flex items-center space-x-4">
             <button onClick={toggleSidebar} className="p-2 hover:bg-gray-700 rounded-lg">
               <svg
@@ -519,7 +519,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-dark">
           {tabState.messages.map((message, index) => (
             <div
               key={index}
@@ -527,7 +527,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
             >
               <div
                 className={`max-w-[80%] rounded-lg p-4 ${
-                  message.role === 'user' ? 'bg-blue-600' : 'bg-gray-700'
+                  message.role === 'user' ? 'bg-accent-blue text-white' : 'bg-dark-50 text-gray-100'
                 }`}
               >
                 <MessageContent
@@ -548,7 +548,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
         </div>
 
         {/* Input Form */}
-        <div className="flex-none border-t border-gray-700 p-4">
+        <div className="flex-none border-t border-dark-100 p-4 bg-dark-50">
           {showFileUpload ? (
             <div className="space-y-4">
               <FileUpload onFileSelect={handleFileSelect} />
@@ -596,7 +596,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  className="flex-1 bg-gray-800 text-white rounded-lg px-4 py-2"
+                  className="flex-1 bg-dark-100 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent-blue transition-all"
                   placeholder="Type your message..."
                   disabled={tabState.isLoading}
                 />
