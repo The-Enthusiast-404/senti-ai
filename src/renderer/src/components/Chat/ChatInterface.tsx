@@ -39,24 +39,9 @@ interface ChatInterfaceProps {
 }
 
 export default function ChatInterface({ tabId }: ChatInterfaceProps) {
-  const {
-    messages,
-    isLoading,
-    currentModel,
-    currentChatId,
-    chats,
-    isSidebarOpen,
-    loadChats,
-    loadChat,
-    createNewChat,
-    deleteChat,
-    updateChatTitle,
-    sendMessage,
-    setCurrentModel,
-    toggleSidebar
-  } = useChatStore()
-
-  const { updateTabTitle } = useTabStore()
+  const { updateTabState, getTabState } = useTabStore()
+  const tabState = getTabState(tabId)
+  const { chats, loadChats } = useChatStore()
 
   const [input, setInput] = useState('')
   const [editingChatId, setEditingChatId] = useState<string | null>(null)
@@ -67,32 +52,125 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
   const [processedFiles, setProcessedFiles] = useState<Array<{ id: string; filename: string }>>([])
   const [showSystemPrompts, setShowSystemPrompts] = useState(false)
   const [selectedSystemPrompt, setSelectedSystemPrompt] = useState<SystemPrompt | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
-  useEffect(() => {
-    loadChats()
-  }, [])
+  const createNewChat = async () => {
+    updateTabState(tabId, {
+      messages: [],
+      currentChatId: null,
+      isLoading: false
+    })
+  }
 
-  // Update tab title when chat title changes
-  useEffect(() => {
-    if (currentChatId) {
-      const chat = chats.find((c) => c.id === currentChatId)
-      if (chat) {
-        updateTabTitle(tabId, chat.title)
+  const loadChat = async (chatId: string) => {
+    try {
+      const response = await window.api.getChatMessages(chatId)
+      if (response.success && response.data) {
+        updateTabState(tabId, {
+          messages: response.data,
+          currentChatId: chatId,
+          isLoading: false
+        })
+
+        const chat = chats.find((c) => c.id === chatId)
+        if (chat) {
+          await window.api.setModel(chat.model)
+          updateTabState(tabId, { currentModel: chat.model })
+        }
       }
+    } catch (error) {
+      console.error('Failed to load chat messages:', error)
     }
-  }, [currentChatId, chats, tabId])
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim() || isLoading) return
+  const deleteChat = async (chatId: string) => {
+    try {
+      const response = await window.api.deleteChat(chatId)
+      if (response.success) {
+        const currentState = getTabState(tabId)
+        if (currentState.currentChatId === chatId) {
+          await createNewChat()
+        }
+        await loadChats()
+      }
+    } catch (error) {
+      console.error('Failed to delete chat:', error)
+    }
+  }
 
-    const content = input.trim()
-    setInput('')
-    await sendMessage(content, 'text')
+  const updateChatTitle = async (chatId: string, newTitle: string) => {
+    try {
+      const response = await window.api.updateChatTitle(chatId, newTitle)
+      if (response.success) {
+        await loadChats()
+      }
+    } catch (error) {
+      console.error('Failed to update chat title:', error)
+    }
+  }
+
+  const sendMessage = async (content: string, type: 'text' | 'image') => {
+    const currentState = getTabState(tabId)
+    const userMessage = { role: 'user' as const, content, type }
+
+    updateTabState(tabId, {
+      messages: [...currentState.messages, userMessage],
+      isLoading: true
+    })
+
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 30000)
+      )
+
+      const responsePromise = window.api.chat({
+        chatId: currentState.currentChatId,
+        messages: [...currentState.messages, userMessage],
+        model: currentState.currentModel
+      })
+
+      const response = (await Promise.race([responsePromise, timeoutPromise])) as any
+
+      if (response?.success && response?.data?.content && response?.data?.chatId) {
+        updateTabState(tabId, {
+          messages: [
+            ...currentState.messages,
+            userMessage,
+            { role: 'assistant', content: response.data.content, type: 'text' }
+          ],
+          isLoading: false,
+          currentChatId: response.data.chatId
+        })
+        await loadChats()
+      } else {
+        throw new Error(response?.error || 'Invalid response')
+      }
+    } catch (error) {
+      console.error('Chat error:', error)
+      updateTabState(tabId, {
+        messages: [
+          ...currentState.messages,
+          userMessage,
+          {
+            role: 'assistant',
+            content: 'Sorry, there was an error processing your request. Please try again.',
+            type: 'text'
+          }
+        ],
+        isLoading: false
+      })
+    }
   }
 
   const handleModelSelect = async (model: string) => {
-    await setCurrentModel(model)
+    try {
+      const response = await window.api.setModel(model)
+      if (response.success) {
+        updateTabState(tabId, { currentModel: model })
+      }
+    } catch (error) {
+      console.error('Failed to switch model:', error)
+    }
   }
 
   const handleSystemPromptSelect = (prompt: SystemPrompt | null) => {
@@ -101,6 +179,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
   }
 
   const handleImageSelect = async (base64Image: string) => {
+    const currentState = getTabState(tabId)
     const userMessage = {
       role: 'user' as const,
       content: base64Image,
@@ -112,12 +191,13 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
 
     try {
       const response = await window.api.chat({
-        chatId: currentChatId,
-        messages: [...messages, userMessage]
+        chatId: currentState.currentChatId,
+        messages: [...currentState.messages, userMessage],
+        model: currentState.currentModel
       })
 
       if (response.success && response.data?.content && response.data?.chatId) {
-        await sendMessage(response.data!.content, 'text')
+        await sendMessage(response.data.content, 'text')
         await loadChats()
       } else {
         throw new Error(response.error || 'Failed to get response')
@@ -202,12 +282,30 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
     }
   }
 
+  const toggleSidebar = () => {
+    updateTabState(tabId, {
+      isSidebarOpen: !tabState.isSidebarOpen
+    })
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim() || tabState.isLoading) return
+
+    const content = selectedSystemPrompt
+      ? `${selectedSystemPrompt.content}\n\nUser: ${input}`
+      : input
+
+    await sendMessage(content, 'text')
+    setInput('')
+  }
+
   return (
     <div className="flex h-full bg-gray-900">
       {/* Chat History Sidebar */}
       <div
         className={`${
-          isSidebarOpen ? 'w-64' : 'w-0'
+          tabState.isSidebarOpen ? 'w-64' : 'w-0'
         } bg-gray-800 transition-all duration-300 overflow-hidden`}
       >
         <div className="p-4">
@@ -221,9 +319,14 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
             {chats.map((chat) => (
               <div
                 key={chat.id}
-                className={`group relative p-2 rounded-lg hover:bg-gray-700 ${
-                  currentChatId === chat.id ? 'bg-gray-700' : ''
+                className={`group flex flex-col space-y-1 p-2 rounded hover:bg-gray-700 cursor-pointer ${
+                  tabState.currentChatId === chat.id ? 'bg-gray-700' : ''
                 }`}
+                onClick={() => loadChat(chat.id)}
+                onDoubleClick={() => {
+                  setEditingChatId(chat.id)
+                  setEditingTitle(chat.title)
+                }}
               >
                 <div className="flex justify-between items-center">
                   {editingChatId === chat.id ? (
@@ -252,14 +355,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                       autoFocus
                     />
                   ) : (
-                    <div
-                      className="truncate text-sm text-gray-200 cursor-pointer"
-                      onClick={() => loadChat(chat.id)}
-                      onDoubleClick={() => {
-                        setEditingChatId(chat.id)
-                        setEditingTitle(chat.title)
-                      }}
-                    >
+                    <div className="truncate text-sm text-gray-200 cursor-pointer">
                       {chat.title}
                     </div>
                   )}
@@ -315,7 +411,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                 />
               </svg>
             </button>
-            <ModelSelector onModelSelect={handleModelSelect} currentModel={currentModel} />
+            <ModelSelector onModelSelect={handleModelSelect} currentModel={tabState.currentModel} />
           </div>
 
           <div className="flex items-center space-x-4">
@@ -364,7 +460,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((message, index) => (
+          {tabState.messages.map((message, index) => (
             <div
               key={index}
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -382,7 +478,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
               </div>
             </div>
           ))}
-          {isLoading && (
+          {tabState.isLoading && (
             <div className="flex justify-start">
               <div className="max-w-[80%] rounded-lg p-4 bg-gray-700 text-gray-100">
                 Thinking...
@@ -442,13 +538,13 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                   onChange={(e) => setInput(e.target.value)}
                   className="flex-1 bg-gray-800 text-white rounded-lg px-4 py-2"
                   placeholder="Type your message..."
-                  disabled={isLoading}
+                  disabled={tabState.isLoading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowFileUpload(true)}
                   className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg"
-                  disabled={isLoading}
+                  disabled={tabState.isLoading}
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -463,7 +559,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                   type="button"
                   onClick={() => setShowImageUpload(true)}
                   className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg"
-                  disabled={isLoading}
+                  disabled={tabState.isLoading}
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -478,7 +574,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                   type="button"
                   onClick={() => setShowSystemPrompts(true)}
                   className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg"
-                  disabled={isLoading}
+                  disabled={tabState.isLoading}
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -492,11 +588,11 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                 <button
                   type="submit"
                   className={`px-6 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    isLoading
+                    tabState.isLoading
                       ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
                       : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
-                  disabled={isLoading}
+                  disabled={tabState.isLoading}
                 >
                   Send
                 </button>

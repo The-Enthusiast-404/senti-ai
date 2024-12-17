@@ -197,9 +197,9 @@ app.whenReady().then(() => {
   ipcMain.on('ping', () => console.log('pong'))
 
   // Ollama IPC handlers
-  ipcMain.handle('ollama:chat', async (_, { chatId, messages }) => {
+  ipcMain.handle('ollama:chat', async (_, { chatId, messages, model }) => {
     try {
-      const response = await ollamaService.chat(chatId, messages)
+      const response = await ollamaService.chat(chatId, messages, model)
       return { success: true, data: response }
     } catch (err) {
       const error = err instanceof Error ? err.message : 'Unknown error occurred'

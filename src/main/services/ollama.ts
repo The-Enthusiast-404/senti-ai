@@ -24,16 +24,13 @@ interface ImageGenerationResponse {
 }
 
 export class OllamaService {
-  private model: ChatOllama
+  private models: Map<string, ChatOllama>
   private db: DatabaseService
   private documentProcessor: DocumentProcessor
   private webSearch: WebSearchService
 
-  constructor(modelName: string = 'llama2') {
-    this.model = new ChatOllama({
-      baseUrl: 'http://localhost:11434',
-      model: modelName
-    })
+  constructor() {
+    this.models = new Map()
     this.db = new DatabaseService()
     this.documentProcessor = new DocumentProcessor()
 
@@ -44,13 +41,27 @@ export class OllamaService {
     this.webSearch = new WebSearchService(braveApiKey || '')
   }
 
+  private getModel(modelName: string): ChatOllama {
+    if (!this.models.has(modelName)) {
+      this.models.set(
+        modelName,
+        new ChatOllama({
+          baseUrl: 'http://localhost:11434',
+          model: modelName
+        })
+      )
+    }
+    return this.models.get(modelName)!
+  }
+
   async getAvailableModels(): Promise<string[]> {
     const response = await fetch('http://localhost:11434/api/tags')
     const data = await response.json()
     return data.models.map((model: { name: string }) => model.name)
   }
 
-  async chat(chatId: string | null, messages: Message[]) {
+  async chat(chatId: string | null, messages: Message[], modelName: string) {
+    const model = this.getModel(modelName)
     const systemMessage = messages.find((m) => m.role === 'system')
     const userMessages = messages.filter((m) => m.role !== 'system')
 
@@ -60,7 +71,7 @@ export class OllamaService {
       await this.db.createChat({
         id: newChatId,
         title: userMessages[userMessages.length - 1].content.slice(0, 50) + '...',
-        model: this.model.model,
+        model: model.model,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       })
@@ -70,7 +81,7 @@ export class OllamaService {
       ? `${systemMessage.content}\n\nUser: ${userMessages[userMessages.length - 1].content}`
       : userMessages[userMessages.length - 1].content
 
-    const chain = RunnableSequence.from([this.model, new StringOutputParser()])
+    const chain = RunnableSequence.from([model, new StringOutputParser()])
     const response = await chain.invoke(prompt)
 
     // Save messages to database
@@ -111,10 +122,7 @@ export class OllamaService {
   }
 
   setModel(modelName: string) {
-    this.model = new ChatOllama({
-      baseUrl: 'http://localhost:11434',
-      model: modelName
-    })
+    this.getModel(modelName)
   }
 
   async updateChatTitle(chatId: string, newTitle: string) {
@@ -151,7 +159,8 @@ export class OllamaService {
     return await this.documentProcessor.processFile(filePath)
   }
 
-  async chatWithRAG(chatId: string | null, messages: Message[]) {
+  async chatWithRAG(chatId: string | null, messages: Message[], modelName: string) {
+    const model = this.getModel(modelName)
     const lastMessage = messages[messages.length - 1]
     const relevantDocs = await this.documentProcessor.queryDocuments(lastMessage.content)
 
@@ -161,7 +170,7 @@ export class OllamaService {
       await this.db.createChat({
         id: newChatId,
         title: lastMessage.content.slice(0, 50) + '...',
-        model: this.model.model,
+        model: model.model,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       })
@@ -170,7 +179,7 @@ export class OllamaService {
     const context = formatDocumentsAsString(relevantDocs)
     const prompt = `Context: ${context}\n\nQuestion: ${lastMessage.content}\n\nAnswer: `
 
-    const chain = RunnableSequence.from([this.model, new StringOutputParser()])
+    const chain = RunnableSequence.from([model, new StringOutputParser()])
     const response = await chain.invoke(prompt)
 
     // Save message to database
@@ -198,7 +207,8 @@ export class OllamaService {
     }
   }
 
-  async chatWithWebRAG(chatId: string | null, messages: Message[]) {
+  async chatWithWebRAG(chatId: string | null, messages: Message[], modelName: string) {
+    const model = this.getModel(modelName)
     const lastMessage = messages[messages.length - 1]
     const webResults = await this.webSearch.search(lastMessage.content)
 
@@ -208,7 +218,7 @@ export class OllamaService {
       await this.db.createChat({
         id: newChatId,
         title: lastMessage.content.slice(0, 50) + '...',
-        model: this.model.model,
+        model: model.model,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       })
@@ -231,7 +241,7 @@ Instructions:
 3. Be concise but informative
 4. Only cite sources that you actually use in your response`
 
-    const chain = RunnableSequence.from([this.model, new StringOutputParser()])
+    const chain = RunnableSequence.from([model, new StringOutputParser()])
     const response = await chain.invoke(prompt)
 
     const formattedResponse = {
@@ -310,7 +320,7 @@ Instructions:
     systemPrompt: string,
     userPrompt: string
   ): Promise<{ message: { content: string } }> {
-    const response = await this.model.invoke([
+    const response = await this.getModel('llama2').invoke([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ])

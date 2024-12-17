@@ -4,11 +4,20 @@ import { useChatStore } from './chatStore'
 
 export type TabType = 'chat' | 'code' | 'stock' | 'settings'
 
+interface TabState {
+  messages: Message[]
+  isLoading: boolean
+  currentModel: string
+  isSidebarOpen: boolean
+  currentChatId: string | null
+}
+
 interface Tab {
   id: string
   type: TabType
   title: string
   chatId?: string
+  state?: TabState
 }
 
 interface TabStore {
@@ -19,6 +28,8 @@ interface TabStore {
   setActiveTab: (id: string) => void
   updateTabTitle: (id: string, title: string) => void
   updateTabChatId: (id: string, chatId: string) => void
+  updateTabState: (id: string, state: Partial<TabState>) => void
+  getTabState: (id: string) => TabState
 }
 
 export const useTabStore = create<TabStore>((set, get) => ({
@@ -30,7 +41,14 @@ export const useTabStore = create<TabStore>((set, get) => ({
       id: uuidv4(),
       type,
       title: getInitialTitle(type),
-      chatId
+      chatId,
+      state: {
+        messages: [],
+        isLoading: false,
+        currentModel: 'llama2',
+        isSidebarOpen: true,
+        currentChatId: null
+      }
     }
     set((state) => ({
       tabs: [...state.tabs, newTab],
@@ -70,6 +88,32 @@ export const useTabStore = create<TabStore>((set, get) => ({
     set((state) => ({
       tabs: state.tabs.map((tab) => (tab.id === id ? { ...tab, chatId } : tab))
     }))
+  },
+
+  updateTabState: (id, newState) => {
+    set((state) => ({
+      tabs: state.tabs.map((tab) =>
+        tab.id === id
+          ? {
+              ...tab,
+              state: { ...tab.state, ...newState }
+            }
+          : tab
+      )
+    }))
+  },
+
+  getTabState: (id) => {
+    const tab = get().tabs.find((t) => t.id === id)
+    return (
+      tab?.state || {
+        messages: [],
+        isLoading: false,
+        currentModel: 'llama2',
+        isSidebarOpen: false,
+        currentChatId: null
+      }
+    )
   }
 }))
 
