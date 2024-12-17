@@ -9,6 +9,7 @@ import CodeGenerator from '../CodeGeneration/CodeGenerator'
 import StockViewer from '../Stocks/StockViewer'
 import { useChatStore } from '../../stores/chatStore'
 import { useTabStore } from '../../stores/tabStore'
+import { v4 as uuidv4 } from 'uuid'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -74,14 +75,18 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
     try {
       updateTabState(tabId, { isLoading: true })
       const response = await window.api.getChatMessages(chatId)
+      const chat = chats.find((c) => c.id === chatId)
+
       if (response.success && response.data) {
-        const chat = chats.find((c) => c.id === chatId)
         updateTabState(tabId, {
           messages: response.data,
           currentChatId: chatId,
           isLoading: false,
           currentModel: chat?.model || 'llama2'
         })
+
+        // Also update the model in the Ollama service
+        await window.api.setModel(chat?.model || 'llama2')
       }
     } catch (error) {
       console.error('Failed to load chat messages:', error)
@@ -321,23 +326,34 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
   }
 
   const handleChatSelect = async (chat: Chat) => {
-    const { tabs, createTab, setActiveTab } = useTabStore.getState()
-
-    // Check if chat is already open in a tab
-    const existingTab = tabs.find(
+    const tabStore = useTabStore.getState()
+    const existingTab = tabStore.tabs.find(
       (tab) => tab.type === 'chat' && tab.state?.currentChatId === chat.id
     )
 
     if (existingTab) {
-      // If chat is already open, just switch to that tab
-      setActiveTab(existingTab.id)
+      tabStore.setActiveTab(existingTab.id)
     } else {
-      // Create new tab for this chat with the chat title
-      const newTab = createTab('chat', chat.title)
-      updateTabState(newTab.id, { currentChatId: chat.id })
-    }
+      // First get the chat messages
+      const response = await window.api.getChatMessages(chat.id)
 
-    await loadChat(chat.id)
+      // Generate new tab ID
+      const newTabId = uuidv4()
+
+      // Create new tab with proper initial state
+      tabStore.createTab('chat', chat.title, newTabId, {
+        messages: response.success ? response.data : [],
+        currentChatId: chat.id,
+        currentModel: chat.model,
+        isLoading: false,
+        isSidebarOpen: true
+      })
+
+      tabStore.setActiveTab(newTabId)
+
+      // Update the model in the Ollama service
+      await window.api.setModel(chat.model)
+    }
   }
 
   return (

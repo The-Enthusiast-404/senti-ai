@@ -23,7 +23,7 @@ interface Tab {
 interface TabStore {
   tabs: Tab[]
   activeTabId: string | null
-  createTab: (type: TabType, chatId?: string) => void
+  createTab: (type: TabType, title: string, id?: string, initialState?: TabState) => void
   closeTab: (id: string) => void
   setActiveTab: (id: string) => void
   updateTabTitle: (id: string, title: string) => void
@@ -36,13 +36,12 @@ export const useTabStore = create<TabStore>((set, get) => ({
   tabs: [],
   activeTabId: null,
 
-  createTab: (type, chatId) => {
+  createTab: (type: TabType, title: string, id?: string, initialState?: TabState) => {
     const newTab: Tab = {
-      id: uuidv4(),
+      id: id || uuidv4(),
       type,
-      title: getInitialTitle(type),
-      chatId,
-      state: {
+      title,
+      state: initialState || {
         messages: [],
         isLoading: false,
         currentModel: 'llama2',
@@ -50,14 +49,13 @@ export const useTabStore = create<TabStore>((set, get) => ({
         currentChatId: null
       }
     }
+
     set((state) => ({
       tabs: [...state.tabs, newTab],
       activeTabId: newTab.id
     }))
 
-    if (type === 'chat') {
-      useChatStore.getState().createNewChat()
-    }
+    return newTab
   },
 
   closeTab: (id) => {
