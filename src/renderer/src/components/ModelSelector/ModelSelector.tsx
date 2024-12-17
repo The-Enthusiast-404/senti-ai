@@ -37,13 +37,11 @@ export default function ModelSelector({ onModelSelect, currentModel }: ModelSele
       <select
         value={currentModel}
         onChange={(e) => onModelSelect(e.target.value)}
-        className="bg-dark-100 text-gray-200 px-3 py-2 rounded-lg border border-dark-50 focus:outline-none focus:ring-2 focus:ring-accent-blue transition-all"
+        className="bg-white dark:bg-dark-50 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-dark-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
-        {availableModels.map((model) => (
-          <option key={model} value={model}>
-            {model}
-          </option>
-        ))}
+        <option value="codellama:13b">CodeLlama 13B</option>
+        <option value="codellama:34b">CodeLlama 34B</option>
+        <option value="llama2:70b">Llama2 70B</option>
       </select>
     </div>
   )

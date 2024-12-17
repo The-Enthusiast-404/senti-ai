@@ -359,12 +359,12 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
   }
 
   return (
-    <div className="flex h-full bg-dark">
+    <div className="flex h-full bg-white dark:bg-dark-400">
       {/* Chat History Sidebar */}
       <div
         className={`${
           tabState.isSidebarOpen ? 'w-64' : 'w-0'
-        } bg-dark-50 transition-all duration-300 overflow-hidden flex flex-col h-full border-r border-dark-100`}
+        } bg-gray-50 dark:bg-dark-50 transition-all duration-300 overflow-hidden flex flex-col h-full border-r border-gray-200 dark:border-dark-100`}
       >
         <div className="flex-none p-4">
           <button
@@ -379,8 +379,8 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
             {chats?.map((chat) => (
               <div
                 key={chat.id}
-                className={`group flex flex-col space-y-1 p-2 rounded hover:bg-gray-700 cursor-pointer ${
-                  tabState?.currentChatId === chat.id ? 'bg-gray-700' : ''
+                className={`group flex flex-col space-y-1 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
+                  tabState?.currentChatId === chat.id ? 'bg-gray-100 dark:bg-gray-700' : ''
                 }`}
                 onClick={() => handleChatSelect(chat)}
                 onDoubleClick={() => {
@@ -411,11 +411,11 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                           setEditingChatId(null)
                         }
                       }}
-                      className="bg-gray-700 text-sm text-gray-200 p-1 rounded w-full outline-none"
+                      className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 p-1 rounded w-full outline-none border border-gray-200 dark:border-gray-600"
                       autoFocus
                     />
                   ) : (
-                    <div className="truncate text-sm text-gray-200 cursor-pointer">
+                    <div className="truncate text-sm text-gray-900 dark:text-gray-200">
                       {chat.title}
                     </div>
                   )}
@@ -426,10 +426,10 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                         deleteChat(chat.id)
                       }
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-600 rounded"
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
                   >
                     <svg
-                      className="w-4 h-4 text-gray-400 hover:text-red-400"
+                      className="w-4 h-4 text-gray-600 dark:text-gray-400 hover:text-red-400"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -443,7 +443,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                     </svg>
                   </button>
                 </div>
-                <div className="text-xs text-gray-400">
+                <div className="text-xs text-gray-600 dark:text-gray-400">
                   {new Date(chat.updatedAt).toLocaleDateString()}
                 </div>
               </div>
@@ -453,8 +453,8 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col h-full">
-        <div className="flex-none border-b border-dark-100 p-4 flex items-center justify-between bg-dark-50">
+      <div className="flex-1 flex flex-col h-full bg-white dark:bg-dark-400">
+        <div className="flex-none border-b border-gray-200 dark:border-dark-100 p-4 flex items-center justify-between bg-white dark:bg-dark-50">
           <div className="flex items-center space-x-4">
             <button onClick={toggleSidebar} className="p-2 hover:bg-gray-700 rounded-lg">
               <svg
@@ -476,11 +476,11 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
 
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-400">Web Search</span>
+              <span className="text-sm text-gray-700 dark:text-gray-400">Web Search</span>
               <button
                 onClick={() => setRagMode(ragMode === 'web' ? 'none' : 'web')}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                  ragMode === 'web' ? 'bg-blue-600' : 'bg-gray-600'
+                  ragMode === 'web' ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
                 }`}
               >
                 <span
@@ -492,11 +492,11 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
             </div>
 
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-400">Use Files</span>
+              <span className="text-sm text-gray-700 dark:text-gray-400">Use Files</span>
               <button
                 onClick={() => setRagMode(ragMode === 'files' ? 'none' : 'files')}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                  ragMode === 'files' ? 'bg-blue-600' : 'bg-gray-600'
+                  ragMode === 'files' ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
                 }`}
               >
                 <span
@@ -519,7 +519,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-dark">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {tabState.messages.map((message, index) => (
             <div
               key={index}
@@ -527,7 +527,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
             >
               <div
                 className={`max-w-[80%] rounded-lg p-4 ${
-                  message.role === 'user' ? 'bg-accent-blue text-white' : 'bg-dark-50 text-gray-100'
+                  message.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-50 dark:bg-dark-50'
                 }`}
               >
                 <MessageContent
@@ -540,7 +540,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
           ))}
           {tabState.isLoading && (
             <div className="flex justify-start">
-              <div className="max-w-[80%] rounded-lg p-4 bg-gray-700 text-gray-100">
+              <div className="max-w-[80%] rounded-lg p-4 bg-gray-50 dark:bg-dark-50">
                 Thinking...
               </div>
             </div>
@@ -548,7 +548,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
         </div>
 
         {/* Input Form */}
-        <div className="flex-none border-t border-dark-100 p-4 bg-dark-50">
+        <div className="flex-none border-t border-gray-200 dark:border-dark-100 p-4 bg-white dark:bg-dark-50">
           {showFileUpload ? (
             <div className="space-y-4">
               <FileUpload onFileSelect={handleFileSelect} />
@@ -572,13 +572,13 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
           ) : (
             <div className="flex flex-col space-y-2">
               {selectedSystemPrompt && (
-                <div className="flex items-center space-x-2 px-3 py-2 bg-gray-800 rounded-lg">
-                  <span className="text-sm text-gray-400">
+                <div className="flex items-center space-x-2 px-4 py-2 bg-gray-50 rounded-lg border border-gray-200 mb-4">
+                  <span className="text-sm text-gray-600">
                     Using prompt: {selectedSystemPrompt.name}
                   </span>
                   <button
                     onClick={() => setSelectedSystemPrompt(null)}
-                    className="text-gray-400 hover:text-white"
+                    className="text-gray-400 hover:text-gray-600"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -596,60 +596,15 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  className="flex-1 bg-dark-100 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent-blue transition-all"
-                  placeholder="Type your message..."
+                  className="flex-1 bg-gray-50 dark:bg-dark-100 text-gray-900 dark:text-gray-100 rounded-full px-6 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-200 dark:border-dark-100"
+                  placeholder="Type something..."
                   disabled={tabState.isLoading}
                 />
                 <button
-                  type="button"
-                  onClick={() => setShowFileUpload(true)}
-                  className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg"
-                  disabled={tabState.isLoading}
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowImageUpload(true)}
-                  className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg"
-                  disabled={tabState.isLoading}
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowSystemPrompts(true)}
-                  className="px-4 py-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg"
-                  disabled={tabState.isLoading}
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                    />
-                  </svg>
-                </button>
-                <button
                   type="submit"
-                  className={`px-6 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`px-6 py-3 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     tabState.isLoading
-                      ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
+                      ? 'bg-gray-100 dark:bg-dark-100 text-gray-400 cursor-not-allowed'
                       : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
                   disabled={tabState.isLoading}

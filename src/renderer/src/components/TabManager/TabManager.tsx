@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
-import { useTabStore } from '../../stores/tabStore'
+import { TabType, useTabStore } from '../../stores/tabStore'
 import ChatInterface from '../Chat/ChatInterface'
 import CodeGenerator from '../CodeGeneration/CodeGenerator'
 import StockViewer from '../Stocks/StockViewer'
+import ThemeToggle from '../Theme/ThemeToggle'
 
 export default function TabManager() {
   const { tabs, activeTabId, createTab, closeTab, setActiveTab } = useTabStore()
@@ -67,16 +68,16 @@ export default function TabManager() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-dark">
-      <div className="flex items-center bg-dark-50 px-2 py-1 border-b border-dark-100">
+    <div className="flex flex-col h-screen bg-white dark:bg-dark-400">
+      <div className="flex items-center bg-white dark:bg-dark-50 px-2 py-1 border-b border-gray-200 dark:border-dark-100">
         <div className="flex-1 flex items-center space-x-2 overflow-x-auto">
           {tabs.map((tab) => (
             <div
               key={tab.id}
               className={`group flex items-center px-3 py-2 rounded-t-lg cursor-pointer transition-colors ${
                 activeTabId === tab.id
-                  ? 'bg-dark text-white'
-                  : 'bg-dark-50 text-gray-400 hover:bg-dark-100'
+                  ? 'bg-gray-100 dark:bg-dark-100 text-gray-900 dark:text-gray-100'
+                  : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-dark-100'
               }`}
               onClick={() => setActiveTab(tab.id)}
             >
@@ -94,13 +95,13 @@ export default function TabManager() {
             </div>
           ))}
         </div>
-
+        <ThemeToggle />
         <div className="flex items-center space-x-2 px-2">
           {['chat', 'code', 'stock'].map((type) => (
             <button
               key={type}
               onClick={() => createTab(type as TabType)}
-              className="p-2 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
               title={`New ${type.charAt(0).toUpperCase() + type.slice(1)}`}
             >
               {getTabIcon(type as TabType)}

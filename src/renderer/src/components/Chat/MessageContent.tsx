@@ -63,10 +63,17 @@ export default function MessageContent({ content, type, isUser }: MessageContent
   }
 
   return (
-    <div className={`${isUser ? 'text-white' : 'text-gray-200'} space-y-4`}>
+    <div
+      className={`prose ${isUser ? 'text-white' : 'text-gray-900 dark:text-gray-100'} max-w-none`}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
+          p: ({ children }) => (
+            <p className={`${isUser ? 'text-white' : 'text-gray-900 dark:text-gray-100'}`}>
+              {children}
+            </p>
+          ),
           code({ node, inline, className, children, ...props }) {
             const match = /language-(\w+)/.exec(className || '')
             const code = String(children).replace(/\n$/, '')
