@@ -364,21 +364,23 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
       <div
         className={`${
           tabState.isSidebarOpen ? 'w-64' : 'w-0'
-        } bg-gray-800 transition-all duration-300 overflow-hidden`}
+        } bg-gray-800 transition-all duration-300 overflow-hidden flex flex-col h-full`}
       >
-        <div className="p-4">
+        <div className="flex-none p-4">
           <button
             onClick={createNewChat}
             className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             New Chat
           </button>
-          <div className="mt-4 space-y-2">
-            {chats.map((chat) => (
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-4 pb-4 space-y-2">
+            {chats?.map((chat) => (
               <div
                 key={chat.id}
                 className={`group flex flex-col space-y-1 p-2 rounded hover:bg-gray-700 cursor-pointer ${
-                  tabState.currentChatId === chat.id ? 'bg-gray-700' : ''
+                  tabState?.currentChatId === chat.id ? 'bg-gray-700' : ''
                 }`}
                 onClick={() => handleChatSelect(chat)}
                 onDoubleClick={() => {
