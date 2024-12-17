@@ -1,69 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
+import { useTabStore } from '../../stores/tabStore'
 import ChatInterface from '../Chat/ChatInterface'
 import CodeGenerator from '../CodeGeneration/CodeGenerator'
 import StockViewer from '../Stocks/StockViewer'
-import { v4 as uuidv4 } from 'uuid'
-
-interface Tab {
-  id: string
-  type: 'chat' | 'code' | 'stock' | 'settings'
-  title: string
-  chatId?: string
-}
 
 export default function TabManager() {
-  const [tabs, setTabs] = useState<Tab[]>([])
-  const [activeTabId, setActiveTabId] = useState<string | null>(null)
+  const { tabs, activeTabId, createTab, closeTab, setActiveTab } = useTabStore()
 
   useEffect(() => {
     if (tabs.length === 0) {
-      createNewTab('chat')
+      createTab('chat')
     }
   }, [])
 
-  const createNewTab = (type: Tab['type'], chatId?: string) => {
-    const newTab: Tab = {
-      id: uuidv4(),
-      type,
-      title: getInitialTitle(type),
-      chatId
-    }
-    setTabs([...tabs, newTab])
-    setActiveTabId(newTab.id)
-  }
-
-  const getInitialTitle = (type: Tab['type']) => {
-    switch (type) {
-      case 'chat':
-        return 'New Chat'
-      case 'code':
-        return 'Code Generator'
-      case 'stock':
-        return 'Stock Analysis'
-      default:
-        return 'New Tab'
-    }
-  }
-
-  const updateTabTitle = (tabId: string, newTitle: string) => {
-    setTabs(tabs.map((tab) => (tab.id === tabId ? { ...tab, title: newTitle } : tab)))
-  }
-
-  const closeTab = (tabId: string, event?: React.MouseEvent) => {
-    event?.stopPropagation()
-    const newTabs = tabs.filter((tab) => tab.id !== tabId)
-    setTabs(newTabs)
-
-    if (activeTabId === tabId) {
-      setActiveTabId(newTabs[newTabs.length - 1]?.id || null)
-    }
-
-    if (newTabs.length === 0) {
-      createNewTab('chat')
-    }
-  }
-
-  const getTabIcon = (type: Tab['type']) => {
+  const getTabIcon = (type: TabType) => {
     switch (type) {
       case 'chat':
         return (
@@ -106,11 +56,11 @@ export default function TabManager() {
   const renderTabContent = (tab: Tab) => {
     switch (tab.type) {
       case 'chat':
-        return <ChatInterface />
+        return <ChatInterface key={tab.id} tabId={tab.id} />
       case 'code':
-        return <CodeGenerator />
+        return <CodeGenerator key={tab.id} />
       case 'stock':
-        return <StockViewer onClose={() => closeTab(tab.id)} />
+        return <StockViewer key={tab.id} />
       default:
         return null
     }
@@ -118,7 +68,6 @@ export default function TabManager() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-900">
-      {/* Tab Bar */}
       <div className="flex items-center bg-gray-800 px-2 py-1 border-b border-gray-700">
         <div className="flex-1 flex items-center space-x-2 overflow-x-auto">
           {tabs.map((tab) => (
@@ -129,12 +78,15 @@ export default function TabManager() {
                   ? 'bg-gray-900 text-white'
                   : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
               }`}
-              onClick={() => setActiveTabId(tab.id)}
+              onClick={() => setActiveTab(tab.id)}
             >
               {getTabIcon(tab.type)}
               <span className="ml-2 truncate max-w-xs">{tab.title}</span>
               <button
-                onClick={(e) => closeTab(tab.id, e)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  closeTab(tab.id)
+                }}
                 className="ml-2 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-opacity"
               >
                 ×
@@ -143,33 +95,20 @@ export default function TabManager() {
           ))}
         </div>
 
-        {/* Quick Actions */}
         <div className="flex items-center space-x-2 px-2">
-          <button
-            onClick={() => createNewTab('chat')}
-            className="p-2 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white"
-            title="New Chat"
-          >
-            {getTabIcon('chat')}
-          </button>
-          <button
-            onClick={() => createNewTab('code')}
-            className="p-2 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white"
-            title="Code Generator"
-          >
-            {getTabIcon('code')}
-          </button>
-          <button
-            onClick={() => createNewTab('stock')}
-            className="p-2 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white"
-            title="Stock Analysis"
-          >
-            {getTabIcon('stock')}
-          </button>
+          {['chat', 'code', 'stock'].map((type) => (
+            <button
+              key={type}
+              onClick={() => createTab(type as TabType)}
+              className="p-2 hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white"
+              title={`New ${type.charAt(0).toUpperCase() + type.slice(1)}`}
+            >
+              {getTabIcon(type as TabType)}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Tab Content */}
       <div className="flex-1 overflow-hidden">
         {tabs.map((tab) => (
           <div key={tab.id} className={`h-full ${activeTabId === tab.id ? 'block' : 'hidden'}`}>

@@ -7,6 +7,8 @@ import ContextSources from './ContextSources'
 import SystemPromptManager from '../SystemPrompts/SystemPromptManager'
 import CodeGenerator from '../CodeGeneration/CodeGenerator'
 import StockViewer from '../Stocks/StockViewer'
+import { useChatStore } from '../../stores/chatStore'
+import { useTabStore } from '../../stores/tabStore'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -32,14 +34,31 @@ interface SystemPrompt {
   updatedAt: string
 }
 
-export default function ChatInterface() {
-  const [messages, setMessages] = useState<Message[]>([])
+interface ChatInterfaceProps {
+  tabId: string
+}
+
+export default function ChatInterface({ tabId }: ChatInterfaceProps) {
+  const {
+    messages,
+    isLoading,
+    currentModel,
+    currentChatId,
+    chats,
+    isSidebarOpen,
+    loadChats,
+    loadChat,
+    createNewChat,
+    deleteChat,
+    updateChatTitle,
+    sendMessage,
+    setCurrentModel,
+    toggleSidebar
+  } = useChatStore()
+
+  const { updateTabTitle } = useTabStore()
+
   const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [currentModel, setCurrentModel] = useState<string>('llama2')
-  const [currentChatId, setCurrentChatId] = useState<string | null>(null)
-  const [chats, setChats] = useState<Chat[]>([])
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [editingChatId, setEditingChatId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
   const [showImageUpload, setShowImageUpload] = useState(false)
@@ -53,158 +72,32 @@ export default function ChatInterface() {
     loadChats()
   }, [])
 
-  const loadChats = async () => {
-    try {
-      const response = await window.api.getChats()
-      if (response.success && response.data) {
-        setChats(response.data)
+  // Update tab title when chat title changes
+  useEffect(() => {
+    if (currentChatId) {
+      const chat = chats.find((c) => c.id === currentChatId)
+      if (chat) {
+        updateTabTitle(tabId, chat.title)
       }
-    } catch (error) {
-      console.error('Failed to load chats:', error)
     }
-  }
-
-  const loadChat = async (chatId: string) => {
-    try {
-      const response = await window.api.getChatMessages(chatId)
-      if (response.success && response.data) {
-        setMessages(
-          response.data.map((msg) => ({
-            role: msg.role,
-            content: msg.content,
-            type: msg.type || ('text' as const)
-          }))
-        )
-        setCurrentChatId(chatId)
-
-        // Find the chat in chats array and set its model
-        const chat = chats.find((c) => c.id === chatId)
-        if (chat) {
-          setCurrentModel(chat.model)
-          await window.api.setModel(chat.model)
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load chat messages:', error)
-    }
-  }
-
-  const handleNewChat = () => {
-    setMessages([])
-    setCurrentChatId(null)
-  }
-
-  const handleModelSelect = async (model: string) => {
-    try {
-      const response = await window.api.setModel(model)
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to set model')
-      }
-      setCurrentModel(model)
-    } catch (error) {
-      console.error('Failed to switch model:', error)
-    }
-  }
-
-  const handleSystemPromptSelect = (prompt: SystemPrompt | null) => {
-    setSelectedSystemPrompt(prompt)
-    setShowSystemPrompts(false)
-  }
+  }, [currentChatId, chats, tabId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isLoading) return
 
-    const userMessage = {
-      role: 'user' as const,
-      content: input.trim(),
-      type: 'text' as const
-    }
-
-    const currentMessages = [...messages, userMessage]
-    setMessages(currentMessages)
+    const content = input.trim()
     setInput('')
-    setIsLoading(true)
-
-    try {
-      let response
-      // Add system prompt if selected
-      const messagesWithSystem = selectedSystemPrompt
-        ? [
-            {
-              role: 'system' as const,
-              content: selectedSystemPrompt.content,
-              type: 'text' as const
-            },
-            ...currentMessages
-          ]
-        : currentMessages
-
-      if (ragMode === 'web') {
-        response = await window.api.chatWithWebRAG({
-          chatId: currentChatId,
-          messages: messagesWithSystem
-        })
-      } else if (ragMode === 'files') {
-        response = await window.api.chatWithRAG({
-          chatId: currentChatId,
-          messages: messagesWithSystem
-        })
-      } else {
-        response = await window.api.chat({
-          chatId: currentChatId,
-          messages: messagesWithSystem
-        })
-      }
-
-      if (response.success && response.data?.content && response.data?.chatId) {
-        setMessages((prev) => [
-          ...prev,
-          { role: 'assistant', content: response.data!.content, type: 'text' as const }
-        ])
-        setCurrentChatId(response.data.chatId)
-        await loadChats()
-      } else {
-        throw new Error(response.error || 'Failed to get response')
-      }
-    } catch (err) {
-      console.error('Chat error:', err)
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: 'Sorry, there was an error processing your request.',
-          type: 'text'
-        }
-      ])
-    } finally {
-      setIsLoading(false)
-    }
+    await sendMessage(content, 'text')
   }
 
-  const deleteChat = async (chatId: string) => {
-    try {
-      const response = await window.api.deleteChat(chatId)
-      if (response.success) {
-        if (currentChatId === chatId) {
-          handleNewChat()
-        }
-        await loadChats()
-      }
-    } catch (error) {
-      console.error('Failed to delete chat:', error)
-    }
+  const handleModelSelect = async (model: string) => {
+    await setCurrentModel(model)
   }
 
-  const editChatTitle = async (chatId: string, newTitle: string) => {
-    try {
-      const response = await window.api.updateChatTitle(chatId, newTitle)
-      if (response.success) {
-        await loadChats()
-      }
-    } catch (error) {
-      console.error('Failed to update chat title:', error)
-    }
+  const handleSystemPromptSelect = (prompt: SystemPrompt | null) => {
+    setSelectedSystemPrompt(prompt)
+    setShowSystemPrompts(false)
   }
 
   const handleImageSelect = async (base64Image: string) => {
@@ -213,7 +106,7 @@ export default function ChatInterface() {
       content: base64Image,
       type: 'image' as const
     }
-    setMessages((prev) => [...prev, userMessage])
+    await sendMessage(base64Image, 'image')
     setShowImageUpload(false)
     setIsLoading(true)
 
@@ -224,29 +117,14 @@ export default function ChatInterface() {
       })
 
       if (response.success && response.data?.content && response.data?.chatId) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: 'assistant',
-            content: response.data!.content,
-            type: 'text'
-          }
-        ])
-        setCurrentChatId(response.data.chatId)
+        await sendMessage(response.data!.content, 'text')
         await loadChats()
       } else {
         throw new Error(response.error || 'Failed to get response')
       }
     } catch (err) {
       console.error('Chat error:', err)
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: 'Sorry, there was an error processing your request.',
-          type: 'text'
-        }
-      ])
+      await sendMessage('Sorry, there was an error processing your request.', 'text')
     } finally {
       setIsLoading(false)
     }
@@ -272,21 +150,14 @@ export default function ChatInterface() {
           type: 'image' as const
         }
 
-        setMessages((prev) => [...prev, userMessage, assistantMessage])
+        await sendMessage(response.data, 'image')
         setInput('')
       } else {
         throw new Error(response.error || 'Failed to generate image')
       }
     } catch (err) {
       console.error('Image generation error:', err)
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: 'Sorry, there was an error generating the image.',
-          type: 'text' as const
-        }
-      ])
+      await sendMessage('Sorry, there was an error generating the image.', 'text')
     } finally {
       setIsLoading(false)
     }
@@ -304,14 +175,10 @@ export default function ChatInterface() {
             filename: response.data.filename
           }
         ])
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: 'assistant',
-            content: `File "${response.data.filename}" has been processed and added to my knowledge base. You can now ask questions about it.`,
-            type: 'text'
-          }
-        ])
+        await sendMessage(
+          `File "${response.data.filename}" has been processed and added to my knowledge base. You can now ask questions about it.`,
+          'text'
+        )
         // Automatically enable file RAG when a file is uploaded
         setRagMode('files')
       } else {
@@ -319,14 +186,7 @@ export default function ChatInterface() {
       }
     } catch (err) {
       console.error('File processing error:', err)
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: 'Sorry, there was an error processing the file.',
-          type: 'text'
-        }
-      ])
+      await sendMessage('Sorry, there was an error processing the file.', 'text')
     } finally {
       setIsLoading(false)
       setShowFileUpload(false)
@@ -352,7 +212,7 @@ export default function ChatInterface() {
       >
         <div className="p-4">
           <button
-            onClick={handleNewChat}
+            onClick={createNewChat}
             className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             New Chat
@@ -373,14 +233,14 @@ export default function ChatInterface() {
                       onChange={(e) => setEditingTitle(e.target.value)}
                       onBlur={() => {
                         if (editingTitle.trim() && editingTitle !== chat.title) {
-                          editChatTitle(chat.id, editingTitle.trim())
+                          updateChatTitle(chat.id, editingTitle.trim())
                         }
                         setEditingChatId(null)
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           if (editingTitle.trim() && editingTitle !== chat.title) {
-                            editChatTitle(chat.id, editingTitle.trim())
+                            updateChatTitle(chat.id, editingTitle.trim())
                           }
                           setEditingChatId(null)
                         }
@@ -440,10 +300,7 @@ export default function ChatInterface() {
       <div className="flex-1 flex flex-col h-full">
         <div className="flex-none border-b border-gray-700 p-4 flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 hover:bg-gray-700 rounded-lg"
-            >
+            <button onClick={toggleSidebar} className="p-2 hover:bg-gray-700 rounded-lg">
               <svg
                 className="w-6 h-6 text-gray-400"
                 fill="none"
