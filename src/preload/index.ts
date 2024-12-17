@@ -14,9 +14,6 @@ const api = {
   updateChatTitle: (chatId: string, newTitle: string) =>
     ipcRenderer.invoke('chat:updateTitle', chatId, newTitle),
   generateImage: (prompt: string) => ipcRenderer.invoke('image:generate', prompt),
-  processFile: (filePath: string) => ipcRenderer.invoke('document:process', filePath),
-  chatWithRAG: (params) => ipcRenderer.invoke('ollama:chatWithRAG', params),
-  chatWithWebRAG: (params) => ipcRenderer.invoke('ollama:chatWithWebRAG', params),
   systemPrompt: {
     getAll: () => ipcRenderer.invoke('systemPrompt:getAll'),
     create: (prompt) => ipcRenderer.invoke('systemPrompt:create', prompt),
@@ -27,16 +24,5 @@ const api = {
   getStockData: (ticker: string) => ipcRenderer.invoke('stock:getData', ticker)
 }
 
-if (process.contextIsolated) {
-  try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
-  } catch (error) {
-    console.error(error)
-  }
-} else {
-  // @ts-ignore (define in dts)
-  window.electron = electronAPI
-  // @ts-ignore (define in dts)
-  window.api = api
-}
+contextBridge.exposeInMainWorld('api', api)
+contextBridge.exposeInMainWorld('electron', electronAPI)

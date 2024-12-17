@@ -2,11 +2,7 @@ import { useState, useEffect } from 'react'
 import ModelSelector from '../ModelSelector/ModelSelector'
 import MessageContent from './MessageContent'
 import ImageUpload from './ImageUpload'
-import FileUpload from './FileUpload'
-import ContextSources from './ContextSources'
 import SystemPromptManager from '../SystemPrompts/SystemPromptManager'
-import CodeGenerator from '../CodeGeneration/CodeGenerator'
-import StockViewer from '../Stocks/StockViewer'
 import { useChatStore } from '../../stores/chatStore'
 import { useTabStore } from '../../stores/tabStore'
 import { v4 as uuidv4 } from 'uuid'
@@ -48,12 +44,8 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
   const [editingChatId, setEditingChatId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
   const [showImageUpload, setShowImageUpload] = useState(false)
-  const [showFileUpload, setShowFileUpload] = useState(false)
-  const [ragMode, setRagMode] = useState<'none' | 'files' | 'web'>('none')
-  const [processedFiles, setProcessedFiles] = useState<Array<{ id: string; filename: string }>>([])
   const [showSystemPrompts, setShowSystemPrompts] = useState(false)
   const [selectedSystemPrompt, setSelectedSystemPrompt] = useState<SystemPrompt | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
     loadChats()
@@ -126,7 +118,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
     }
   }
 
-  const sendMessage = async (content: string, type: 'text' | 'image') => {
+  const sendMessage = async (content: string, type: 'text' | 'image' = 'text') => {
     const currentState = getTabState(tabId)
     const userMessage = { role: 'user' as const, content, type }
 
@@ -136,54 +128,28 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
     })
 
     try {
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timeout')), 30000)
-      )
-
-      const responsePromise = window.api.chat({
+      const response = await window.api.chat({
         chatId: currentState.currentChatId,
         messages: [...currentState.messages, userMessage],
         model: currentState.currentModel
       })
 
-      const response = (await Promise.race([responsePromise, timeoutPromise])) as any
-
-      if (response?.success && response?.data?.content && response?.data?.chatId) {
-        // Get the updated chat title from the chats list
-        await loadChats()
-        const { chats } = useChatStore.getState()
-        const updatedChat = chats.find((c) => c.id === response.data.chatId)
-
-        // Update both tab state and title
-        const { updateTabTitle } = useTabStore.getState()
-        updateTabTitle(tabId, updatedChat?.title || 'New Chat')
+      if (response.success && response.data) {
+        const assistantMessage = {
+          role: 'assistant' as const,
+          content: response.data.content,
+          type: 'text' as const
+        }
 
         updateTabState(tabId, {
-          messages: [
-            ...currentState.messages,
-            userMessage,
-            { role: 'assistant', content: response.data.content, type: 'text' }
-          ],
-          isLoading: false,
-          currentChatId: response.data.chatId
+          messages: [...currentState.messages, userMessage, assistantMessage],
+          currentChatId: response.data.chatId,
+          isLoading: false
         })
-      } else {
-        throw new Error(response?.error || 'Invalid response')
       }
     } catch (error) {
       console.error('Chat error:', error)
-      updateTabState(tabId, {
-        messages: [
-          ...currentState.messages,
-          userMessage,
-          {
-            role: 'assistant',
-            content: 'Sorry, there was an error processing your request. Please try again.',
-            type: 'text'
-          }
-        ],
-        isLoading: false
-      })
+      updateTabState(tabId, { isLoading: false })
     }
   }
 
@@ -212,7 +178,6 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
     }
     await sendMessage(base64Image, 'image')
     setShowImageUpload(false)
-    setIsLoading(true)
 
     try {
       const response = await window.api.chat({
@@ -230,15 +195,12 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
     } catch (err) {
       console.error('Chat error:', err)
       await sendMessage('Sorry, there was an error processing your request.', 'text')
-    } finally {
-      setIsLoading(false)
     }
   }
 
   const handleImageGeneration = async () => {
-    if (!input.trim() || isLoading) return
+    if (!input.trim()) return
 
-    setIsLoading(true)
     try {
       const response = await window.api.generateImage(input.trim())
 
@@ -263,47 +225,6 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
     } catch (err) {
       console.error('Image generation error:', err)
       await sendMessage('Sorry, there was an error generating the image.', 'text')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleFileSelect = async (file: File) => {
-    setIsLoading(true)
-    try {
-      const response = await window.api.processFile(file.path)
-      if (response.success && response.data?.filename) {
-        setProcessedFiles((prev) => [
-          ...prev,
-          {
-            id: response.data.id,
-            filename: response.data.filename
-          }
-        ])
-        await sendMessage(
-          `File "${response.data.filename}" has been processed and added to my knowledge base. You can now ask questions about it.`,
-          'text'
-        )
-        // Automatically enable file RAG when a file is uploaded
-        setRagMode('files')
-      } else {
-        throw new Error(response.error || 'Failed to process file')
-      }
-    } catch (err) {
-      console.error('File processing error:', err)
-      await sendMessage('Sorry, there was an error processing the file.', 'text')
-    } finally {
-      setIsLoading(false)
-      setShowFileUpload(false)
-    }
-  }
-
-  const handleRemoveFile = async (fileId: string) => {
-    try {
-      await window.api.removeProcessedFile(fileId)
-      setProcessedFiles((prev) => prev.filter((f) => f.id !== fileId))
-    } catch (error) {
-      console.error('Failed to remove file:', error)
     }
   }
 
@@ -473,49 +394,6 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
             </button>
             <ModelSelector onModelSelect={handleModelSelect} currentModel={tabState.currentModel} />
           </div>
-
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-700 dark:text-gray-400">Web Search</span>
-              <button
-                onClick={() => setRagMode(ragMode === 'web' ? 'none' : 'web')}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                  ragMode === 'web' ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    ragMode === 'web' ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-700 dark:text-gray-400">Use Files</span>
-              <button
-                onClick={() => setRagMode(ragMode === 'files' ? 'none' : 'files')}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                  ragMode === 'files' ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    ragMode === 'files' ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-none">
-          <ContextSources
-            webEnabled={ragMode === 'web'}
-            filesEnabled={ragMode === 'files'}
-            files={processedFiles}
-            onRemoveFile={handleRemoveFile}
-          />
         </div>
 
         {/* Messages */}
@@ -549,17 +427,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
 
         {/* Input Form */}
         <div className="flex-none border-t border-gray-200 dark:border-dark-100 p-4 bg-white dark:bg-dark-50">
-          {showFileUpload ? (
-            <div className="space-y-4">
-              <FileUpload onFileSelect={handleFileSelect} />
-              <button
-                onClick={() => setShowFileUpload(false)}
-                className="w-full py-2 text-gray-400 hover:text-white"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : showImageUpload ? (
+          {showImageUpload ? (
             <div className="space-y-4">
               <ImageUpload onImageSelect={handleImageSelect} />
               <button

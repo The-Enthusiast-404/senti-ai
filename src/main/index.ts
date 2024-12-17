@@ -6,7 +6,6 @@ import { OllamaService } from './services/ollama'
 import dotenv from 'dotenv'
 import path from 'path'
 import { CodeGenerationService } from './services/codeGeneration'
-import { WebSearchService } from './services/webSearch'
 
 // Load environment variables from .env file
 dotenv.config({
@@ -20,7 +19,6 @@ if (!process.env.BRAVE_API_KEY || !process.env.POLYGON_API_KEY) {
 
 const ollamaService = new OllamaService()
 const codeGenerationService = new CodeGenerationService()
-const webSearchService = new WebSearchService(process.env.BRAVE_API_KEY || '')
 
 // Add a cache for storing timeframe data
 const stockDataCache = new Map<string, Map<string, any>>()
@@ -278,86 +276,6 @@ app.whenReady().then(() => {
     }
   })
 
-  ipcMain.handle('document:process', async (_, filePath) => {
-    try {
-      const result = await ollamaService.processFile(filePath)
-      return { success: true, data: result }
-    } catch (err) {
-      const error = err instanceof Error ? err.message : 'Unknown error occurred'
-      return { success: false, error }
-    }
-  })
-
-  ipcMain.handle('ollama:chatWithRAG', async (_, params) => {
-    try {
-      const result = await ollamaService.chatWithRAG(params.chatId, params.messages)
-      return { success: true, data: result }
-    } catch (err) {
-      const error = err instanceof Error ? err.message : 'Unknown error occurred'
-      return { success: false, error }
-    }
-  })
-
-  ipcMain.handle('ollama:chatWithWebRAG', async (_, params) => {
-    try {
-      const result = await ollamaService.chatWithWebRAG(params.chatId, params.messages)
-      return { success: true, data: result }
-    } catch (err) {
-      const error = err instanceof Error ? err.message : 'Unknown error occurred'
-      return { success: false, error }
-    }
-  })
-
-  ipcMain.handle('document:remove', async (_, fileId) => {
-    try {
-      await ollamaService.removeProcessedFile(fileId)
-      return { success: true }
-    } catch (err) {
-      const error = err instanceof Error ? err.message : 'Unknown error occurred'
-      return { success: false, error }
-    }
-  })
-
-  ipcMain.handle('systemPrompt:getAll', async () => {
-    try {
-      const prompts = await ollamaService.getSystemPrompts()
-      return { success: true, data: prompts }
-    } catch (err) {
-      const error = err instanceof Error ? err.message : 'Unknown error occurred'
-      return { success: false, error }
-    }
-  })
-
-  ipcMain.handle('systemPrompt:create', async (_, prompt) => {
-    try {
-      const newPrompt = await ollamaService.createSystemPrompt(prompt)
-      return { success: true, data: newPrompt }
-    } catch (err) {
-      const error = err instanceof Error ? err.message : 'Unknown error occurred'
-      return { success: false, error }
-    }
-  })
-
-  ipcMain.handle('systemPrompt:update', async (_, id, updates) => {
-    try {
-      const updated = await ollamaService.updateSystemPrompt(id, updates)
-      return { success: true, data: updated }
-    } catch (err) {
-      const error = err instanceof Error ? err.message : 'Unknown error occurred'
-      return { success: false, error }
-    }
-  })
-
-  ipcMain.handle('systemPrompt:delete', async (_, id) => {
-    try {
-      await ollamaService.deleteSystemPrompt(id)
-      return { success: true }
-    } catch (err) {
-      const error = err instanceof Error ? err.message : 'Unknown error occurred'
-      return { success: false, error }
-    }
-  })
-
   ipcMain.handle('code:generate', async (_, prompt: string) => {
     try {
       const result = await codeGenerationService.generateComponent(prompt)
@@ -372,49 +290,6 @@ app.whenReady().then(() => {
     try {
       console.log('Fetching stock data for:', ticker, 'timeframe:', timeframe)
       const stockData = await fetchStockData(ticker, timeframe)
-
-      // Fetch company-specific news
-      const searchQuery = `${ticker} stock news analysis (site:bloomberg.com OR site:reuters.com OR site:cnbc.com OR site:marketwatch.com OR site:finance.yahoo.com) when:7d`
-      const searchResults = await webSearchService.search(searchQuery, 5)
-
-      const newsArticles = searchResults.map((result) => ({
-        title: result.metadata.title,
-        description: result.pageContent,
-        url: result.metadata.source,
-        date: new Date().toLocaleDateString(), // Brave doesn't provide article dates
-        publisher: result.metadata.domain
-      }))
-
-      // Get news articles content for AI summarization
-      const newsTexts = newsArticles
-        .map((article) => `Title: ${article.title}\nSummary: ${article.description}`)
-        .join('\n\n')
-
-      // Generate AI summary of news using Ollama
-      const newsContext = await ollamaService.generateResponse(
-        `You are a financial analyst providing a structured analysis of ${ticker} stock based ONLY on the following news articles. DO NOT include any external knowledge or historical information not mentioned in these articles.
-
-Format your response using markdown:
-
-# Recent Developments
-- List 2-3 key business developments mentioned in these articles
-- Include specific dates when mentioned
-- Explain their direct impact on stock performance
-
-# Company Strategy
-- Only include strategic changes mentioned in these specific articles
-- Quote or reference specific announcements when possible
-
-# Market Sentiment
-- Only include analyst ratings/targets mentioned in these articles
-- Note recent changes in market perception based on provided news
-
-# Risks & Opportunities
-- List only risks/opportunities explicitly mentioned in these articles
-
-If any section lacks information from the provided articles, state "*No recent information available in provided news.*"`,
-        newsTexts
-      )
 
       if (!stockData.ok) {
         throw new Error(stockData.error || 'Failed to fetch stock data')
@@ -460,13 +335,6 @@ If any section lacks information from the provided articles, state "*No recent i
         peRatio: 0,
         dividend: 0,
         chartData,
-        news: newsArticles.map((item) => ({
-          title: item.title,
-          description: item.description,
-          url: item.url,
-          date: new Date(item.date).toLocaleDateString(),
-          publisher: item.publisher
-        })),
         aiSummary: {
           currentStatus: `${ticker} shares are currently trading at $${latestResult.c.toFixed(2)}, ${
             latestResult.c > previousResult.c ? 'up' : 'down'
@@ -479,7 +347,6 @@ If any section lacks information from the provided articles, state "*No recent i
               ? 'maintains its position as one of the significant players in the market'
               : 'continues to show presence in the market'
           }.`,
-          newsSummary: newsContext.message.content,
           keyMetrics: [
             { label: 'Current Price', value: `$${latestResult.c.toFixed(2)}` },
             {
