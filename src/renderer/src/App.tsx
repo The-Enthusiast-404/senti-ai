@@ -1,11 +1,12 @@
-import ChatInterface from './components/Chat/ChatInterface'
+import ThemeProvider from './components/Theme/ThemeProvider'
+import TabManager from './components/TabManager/TabManager'
 
-function App(): JSX.Element {
+export default function App() {
   return (
-    <div className="h-screen w-screen">
-      <ChatInterface />
-    </div>
+    <ThemeProvider>
+      <div className="min-h-screen bg-white dark:bg-dark-400 text-gray-900 dark:text-gray-100">
+        <TabManager />
+      </div>
+    </ThemeProvider>
   )
 }
-
-export default App

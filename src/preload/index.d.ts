@@ -19,37 +19,13 @@ declare global {
         }
         error?: string
       }>
-      setModel: (modelName: string) => Promise<{ success: boolean; error?: string }>
-      getModels: () => Promise<{ success: boolean; data?: string[]; error?: string }>
-      getChats: () => Promise<{
+      setModel: (modelName: string) => Promise<{
         success: boolean
-        data?: {
-          id: string
-          title: string
-          model: string
-          createdAt: string
-          updatedAt: string
-        }[]
         error?: string
       }>
-      getChatMessages: (chatId: string) => Promise<{
+      getModels: () => Promise<{
         success: boolean
-        data?: {
-          id: string
-          chatId: string
-          role: 'user' | 'assistant'
-          content: string
-          type: 'text' | 'image'
-          createdAt: string
-        }[]
-        error?: string
-      }>
-      deleteChat: (chatId: string) => Promise<{ success: boolean; error?: string }>
-      updateChatTitle: (
-        chatId: string,
-        newTitle: string
-      ) => Promise<{
-        success: boolean
+        data?: string[]
         error?: string
       }>
       generateImage: (prompt: string) => Promise<{
@@ -57,47 +33,13 @@ declare global {
         data?: string
         error?: string
       }>
-      processFile: (filePath: string) => Promise<{
+      updateChatTitle: (
+        chatId: string,
+        newTitle: string
+      ) => Promise<{
         success: boolean
-        data?: {
-          id: string
-          filename: string
-          chunks: number
-          createdAt: string
-        }
         error?: string
       }>
-      chatWithRAG: (params: {
-        chatId: string | null
-        messages: {
-          role: 'user' | 'assistant' | 'system'
-          content: string
-          type: 'text' | 'image'
-        }[]
-      }) => Promise<{
-        success: boolean
-        data?: {
-          chatId: string
-          content: string
-        }
-        error?: string
-      }>
-      chatWithWebRAG: (params: {
-        chatId: string | null
-        messages: {
-          role: 'user' | 'assistant' | 'system'
-          content: string
-          type: 'text' | 'image'
-        }[]
-      }) => Promise<{
-        success: boolean
-        data?: {
-          chatId: string
-          content: string
-        }
-        error?: string
-      }>
-      removeProcessedFile: (fileId: string) => Promise<{ success: boolean; error?: string }>
       systemPrompt: {
         getAll: () => Promise<{
           success: boolean
@@ -133,16 +75,7 @@ declare global {
       }>
       getStockData: (ticker: string) => Promise<{
         success: boolean
-        data?: {
-          ticker: string
-          price: number
-          highPrice: number
-          lowPrice: number
-          previousClose: number
-          percentChange: number
-          volume: number
-          lastUpdated: string
-        }
+        data?: any
         error?: string
       }>
     }

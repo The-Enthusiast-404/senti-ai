@@ -24,24 +24,25 @@ interface ImageGenerationResponse {
 }
 
 export class OllamaService {
-  private model: ChatOllama
+  private models: Map<string, ChatOllama>
   private db: DatabaseService
-  private documentProcessor: DocumentProcessor
-  private webSearch: WebSearchService
 
-  constructor(modelName: string = 'llama2') {
-    this.model = new ChatOllama({
-      baseUrl: 'http://localhost:11434',
-      model: modelName
-    })
+  constructor() {
+    this.models = new Map()
     this.db = new DatabaseService()
-    this.documentProcessor = new DocumentProcessor()
+  }
 
-    const braveApiKey = process.env.BRAVE_API_KEY
-    if (!braveApiKey) {
-      console.warn('BRAVE_API_KEY not found in environment variables')
+  private getModel(modelName: string): ChatOllama {
+    if (!this.models.has(modelName)) {
+      this.models.set(
+        modelName,
+        new ChatOllama({
+          baseUrl: 'http://localhost:11434',
+          model: modelName
+        })
+      )
     }
-    this.webSearch = new WebSearchService(braveApiKey || '')
+    return this.models.get(modelName)!
   }
 
   async getAvailableModels(): Promise<string[]> {
@@ -50,7 +51,8 @@ export class OllamaService {
     return data.models.map((model: { name: string }) => model.name)
   }
 
-  async chat(chatId: string | null, messages: Message[]) {
+  async chat(chatId: string | null, messages: Message[], modelName: string) {
+    const model = this.getModel(modelName)
     const systemMessage = messages.find((m) => m.role === 'system')
     const userMessages = messages.filter((m) => m.role !== 'system')
 
@@ -60,7 +62,7 @@ export class OllamaService {
       await this.db.createChat({
         id: newChatId,
         title: userMessages[userMessages.length - 1].content.slice(0, 50) + '...',
-        model: this.model.model,
+        model: model.model,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       })
@@ -70,7 +72,7 @@ export class OllamaService {
       ? `${systemMessage.content}\n\nUser: ${userMessages[userMessages.length - 1].content}`
       : userMessages[userMessages.length - 1].content
 
-    const chain = RunnableSequence.from([this.model, new StringOutputParser()])
+    const chain = RunnableSequence.from([model, new StringOutputParser()])
     const response = await chain.invoke(prompt)
 
     // Save messages to database
@@ -111,10 +113,7 @@ export class OllamaService {
   }
 
   setModel(modelName: string) {
-    this.model = new ChatOllama({
-      baseUrl: 'http://localhost:11434',
-      model: modelName
-    })
+    this.getModel(modelName)
   }
 
   async updateChatTitle(chatId: string, newTitle: string) {
@@ -151,7 +150,8 @@ export class OllamaService {
     return await this.documentProcessor.processFile(filePath)
   }
 
-  async chatWithRAG(chatId: string | null, messages: Message[]) {
+  async chatWithRAG(chatId: string | null, messages: Message[], modelName: string) {
+    const model = this.getModel(modelName)
     const lastMessage = messages[messages.length - 1]
     const relevantDocs = await this.documentProcessor.queryDocuments(lastMessage.content)
 
@@ -161,7 +161,7 @@ export class OllamaService {
       await this.db.createChat({
         id: newChatId,
         title: lastMessage.content.slice(0, 50) + '...',
-        model: this.model.model,
+        model: model.model,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       })
@@ -170,7 +170,7 @@ export class OllamaService {
     const context = formatDocumentsAsString(relevantDocs)
     const prompt = `Context: ${context}\n\nQuestion: ${lastMessage.content}\n\nAnswer: `
 
-    const chain = RunnableSequence.from([this.model, new StringOutputParser()])
+    const chain = RunnableSequence.from([model, new StringOutputParser()])
     const response = await chain.invoke(prompt)
 
     // Save message to database
@@ -195,72 +195,6 @@ export class OllamaService {
     return {
       chatId: newChatId,
       content: response
-    }
-  }
-
-  async chatWithWebRAG(chatId: string | null, messages: Message[]) {
-    const lastMessage = messages[messages.length - 1]
-    const webResults = await this.webSearch.search(lastMessage.content)
-
-    let newChatId = chatId
-    if (!newChatId) {
-      newChatId = uuidv4()
-      await this.db.createChat({
-        id: newChatId,
-        title: lastMessage.content.slice(0, 50) + '...',
-        model: this.model.model,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      })
-    }
-
-    const sources = webResults.map((doc, index) => ({
-      id: index + 1,
-      title: doc.metadata.title,
-      url: doc.metadata.source,
-      domain: doc.metadata.domain
-    }))
-
-    const context = webResults.map((doc, index) => `[${index + 1}] ${doc.pageContent}`).join('\n\n')
-
-    const prompt = `Context from web search:\n${context}\n\n
-Question: ${lastMessage.content}\n\n
-Instructions:
-1. Provide a comprehensive answer based on the search results
-2. Reference sources using [1], [2], etc. corresponding to the numbers in the context
-3. Be concise but informative
-4. Only cite sources that you actually use in your response`
-
-    const chain = RunnableSequence.from([this.model, new StringOutputParser()])
-    const response = await chain.invoke(prompt)
-
-    const formattedResponse = {
-      content: response,
-      sources
-    }
-
-    // Save messages to database
-    await this.db.addMessage({
-      id: uuidv4(),
-      chatId: newChatId,
-      role: 'user',
-      content: lastMessage.content,
-      type: 'text',
-      createdAt: new Date().toISOString()
-    })
-
-    await this.db.addMessage({
-      id: uuidv4(),
-      chatId: newChatId,
-      role: 'assistant',
-      content: JSON.stringify(formattedResponse),
-      type: 'text',
-      createdAt: new Date().toISOString()
-    })
-
-    return {
-      chatId: newChatId,
-      content: formattedResponse
     }
   }
 
@@ -310,7 +244,7 @@ Instructions:
     systemPrompt: string,
     userPrompt: string
   ): Promise<{ message: { content: string } }> {
-    const response = await this.model.invoke([
+    const response = await this.getModel('llama2').invoke([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ])
