@@ -54,32 +54,38 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
   const [selectedSystemPrompt, setSelectedSystemPrompt] = useState<SystemPrompt | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
+  useEffect(() => {
+    loadChats()
+  }, [])
+
   const createNewChat = async () => {
-    updateTabState(tabId, {
+    const { createTab } = useTabStore.getState()
+    const newTab = createTab('chat', 'New Chat')
+    updateTabState(newTab.id, {
       messages: [],
       currentChatId: null,
-      isLoading: false
+      isLoading: false,
+      currentModel: 'llama2'
     })
+    await loadChats()
   }
 
   const loadChat = async (chatId: string) => {
     try {
+      updateTabState(tabId, { isLoading: true })
       const response = await window.api.getChatMessages(chatId)
       if (response.success && response.data) {
+        const chat = chats.find((c) => c.id === chatId)
         updateTabState(tabId, {
           messages: response.data,
           currentChatId: chatId,
-          isLoading: false
+          isLoading: false,
+          currentModel: chat?.model || 'llama2'
         })
-
-        const chat = chats.find((c) => c.id === chatId)
-        if (chat) {
-          await window.api.setModel(chat.model)
-          updateTabState(tabId, { currentModel: chat.model })
-        }
       }
     } catch (error) {
       console.error('Failed to load chat messages:', error)
+      updateTabState(tabId, { isLoading: false })
     }
   }
 
@@ -102,6 +108,12 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
     try {
       const response = await window.api.updateChatTitle(chatId, newTitle)
       if (response.success) {
+        // Update tab title if this chat is open in a tab
+        const { tabs, updateTabTitle } = useTabStore.getState()
+        const tab = tabs.find((t) => t.type === 'chat' && t.state?.currentChatId === chatId)
+        if (tab) {
+          updateTabTitle(tab.id, newTitle)
+        }
         await loadChats()
       }
     } catch (error) {
@@ -132,6 +144,15 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
       const response = (await Promise.race([responsePromise, timeoutPromise])) as any
 
       if (response?.success && response?.data?.content && response?.data?.chatId) {
+        // Get the updated chat title from the chats list
+        await loadChats()
+        const { chats } = useChatStore.getState()
+        const updatedChat = chats.find((c) => c.id === response.data.chatId)
+
+        // Update both tab state and title
+        const { updateTabTitle } = useTabStore.getState()
+        updateTabTitle(tabId, updatedChat?.title || 'New Chat')
+
         updateTabState(tabId, {
           messages: [
             ...currentState.messages,
@@ -141,7 +162,6 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
           isLoading: false,
           currentChatId: response.data.chatId
         })
-        await loadChats()
       } else {
         throw new Error(response?.error || 'Invalid response')
       }
@@ -300,6 +320,26 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
     setInput('')
   }
 
+  const handleChatSelect = async (chat: Chat) => {
+    const { tabs, createTab, setActiveTab } = useTabStore.getState()
+
+    // Check if chat is already open in a tab
+    const existingTab = tabs.find(
+      (tab) => tab.type === 'chat' && tab.state?.currentChatId === chat.id
+    )
+
+    if (existingTab) {
+      // If chat is already open, just switch to that tab
+      setActiveTab(existingTab.id)
+    } else {
+      // Create new tab for this chat with the chat title
+      const newTab = createTab('chat', chat.title)
+      updateTabState(newTab.id, { currentChatId: chat.id })
+    }
+
+    await loadChat(chat.id)
+  }
+
   return (
     <div className="flex h-full bg-gray-900">
       {/* Chat History Sidebar */}
@@ -322,7 +362,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                 className={`group flex flex-col space-y-1 p-2 rounded hover:bg-gray-700 cursor-pointer ${
                   tabState.currentChatId === chat.id ? 'bg-gray-700' : ''
                 }`}
-                onClick={() => loadChat(chat.id)}
+                onClick={() => handleChatSelect(chat)}
                 onDoubleClick={() => {
                   setEditingChatId(chat.id)
                   setEditingTitle(chat.title)
