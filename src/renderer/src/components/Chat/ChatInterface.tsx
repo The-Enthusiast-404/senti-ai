@@ -321,8 +321,10 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
       ? `${selectedSystemPrompt.content}\n\nUser: ${input}`
       : input
 
-    await sendMessage(content, 'text')
+    // Clear input immediately after sending
     setInput('')
+
+    await sendMessage(content, 'text')
   }
 
   const handleChatSelect = async (chat: Chat) => {
