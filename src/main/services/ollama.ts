@@ -1,5 +1,5 @@
 import { ChatOllama } from '@langchain/community/chat_models/ollama'
-import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages'
+import { BaseMessage, HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages'
 import { DatabaseService } from './database'
 import { v4 as uuidv4 } from 'uuid'
 import { DocumentProcessor } from './documentProcessor'
@@ -32,17 +32,19 @@ export class OllamaService {
     this.db = new DatabaseService()
   }
 
-  private getModel(modelName: string): ChatOllama {
-    if (!this.models.has(modelName)) {
+  private getModel(modelName: string, useContext: boolean = false): ChatOllama {
+    const modelKey = `${modelName}-${useContext}`
+    if (!this.models.has(modelKey)) {
       this.models.set(
-        modelName,
+        modelKey,
         new ChatOllama({
           baseUrl: 'http://localhost:11434',
-          model: modelName
+          model: modelName,
+          context: useContext
         })
       )
     }
-    return this.models.get(modelName)!
+    return this.models.get(modelKey)!
   }
 
   async getAvailableModels(): Promise<string[]> {
@@ -52,7 +54,7 @@ export class OllamaService {
   }
 
   async chat(chatId: string | null, messages: Message[], modelName: string) {
-    const model = this.getModel(modelName)
+    const model = this.getModel(modelName, true)
     const systemMessage = messages.find((m) => m.role === 'system')
     const userMessages = messages.filter((m) => m.role !== 'system')
 
@@ -68,14 +70,18 @@ export class OllamaService {
       })
     }
 
-    const prompt = systemMessage
-      ? `${systemMessage.content}\n\nUser: ${userMessages[userMessages.length - 1].content}`
-      : userMessages[userMessages.length - 1].content
+    const langChainMessages = messages.map((msg) => {
+      if (msg.role === 'user') {
+        return new HumanMessage(msg.content)
+      } else if (msg.role === 'assistant') {
+        return new AIMessage(msg.content)
+      } else {
+        return new SystemMessage(msg.content)
+      }
+    })
 
-    const chain = RunnableSequence.from([model, new StringOutputParser()])
-    const response = await chain.invoke(prompt)
+    const response = await model.invoke(langChainMessages)
 
-    // Save messages to database
     await this.db.addMessage({
       id: uuidv4(),
       chatId: newChatId,
@@ -89,14 +95,14 @@ export class OllamaService {
       id: uuidv4(),
       chatId: newChatId,
       role: 'assistant',
-      content: response,
+      content: String(response.content),
       type: 'text',
       createdAt: new Date().toISOString()
     })
 
     return {
       chatId: newChatId,
-      content: response
+      content: String(response.content)
     }
   }
 
