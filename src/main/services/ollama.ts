@@ -1,6 +1,7 @@
 import { ChatOllama } from '@langchain/community/chat_models/ollama'
 import { BaseMessage, HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages'
 import { DatabaseService } from './database'
+import { DocumentProcessor } from './documentProcessor'
 import { v4 as uuidv4 } from 'uuid'
 
 interface Message {
@@ -19,10 +20,12 @@ interface ImageGenerationResponse {
 export class OllamaService {
   private models: Map<string, ChatOllama>
   private db: DatabaseService
+  private documentProcessor: DocumentProcessor
 
   constructor() {
     this.models = new Map()
     this.db = new DatabaseService()
+    this.documentProcessor = new DocumentProcessor()
   }
 
   private getModel(modelName: string, useContext: boolean = false): ChatOllama {
@@ -48,38 +51,57 @@ export class OllamaService {
 
   async chat(chatId: string | null, messages: Message[], modelName: string) {
     const model = this.getModel(modelName, true)
-    const systemMessage = messages.find((m) => m.role === 'system')
-    const userMessages = messages.filter((m) => m.role !== 'system')
+    const lastMessage = messages[messages.length - 1]
+
+    // Get relevant documents for the last message
+    const relevantDocs = await this.documentProcessor.queryDocuments(lastMessage.content)
 
     let newChatId = chatId
     if (!newChatId) {
       newChatId = uuidv4()
       await this.db.createChat({
         id: newChatId,
-        title: userMessages[userMessages.length - 1].content.slice(0, 50) + '...',
+        title: lastMessage.content.slice(0, 50) + '...',
         model: model.model,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       })
     }
 
-    const langChainMessages = messages.map((msg) => {
-      if (msg.role === 'user') {
-        return new HumanMessage(msg.content)
-      } else if (msg.role === 'assistant') {
-        return new AIMessage(msg.content)
-      } else {
-        return new SystemMessage(msg.content)
-      }
-    })
+    // Prepare context from relevant documents
+    let contextString = ''
+    if (relevantDocs.length > 0) {
+      contextString = `Relevant context from uploaded files:\n${relevantDocs
+        .map((doc) => `[${doc.metadata.filename}]: ${doc.pageContent.substring(0, 500)}...`)
+        .join('\n\n')}\n\n`
+    }
+
+    // Convert messages to LangChain format with context
+    const langChainMessages = [
+      new SystemMessage(
+        contextString
+          ? `You have access to the following context. Use it when relevant to answer questions:\n${contextString}`
+          : 'You are a helpful assistant.'
+      ),
+      ...messages.map((msg) => {
+        if (msg.role === 'user') {
+          return new HumanMessage(msg.content)
+        } else if (msg.role === 'assistant') {
+          return new AIMessage(msg.content)
+        } else {
+          return new SystemMessage(msg.content)
+        }
+      })
+    ]
 
     const response = await model.invoke(langChainMessages)
 
+    // Save messages to database
     await this.db.addMessage({
       id: uuidv4(),
       chatId: newChatId,
       role: 'user',
-      content: userMessages[userMessages.length - 1].content,
+      content: lastMessage.content,
       type: 'text',
       createdAt: new Date().toISOString()
     })
@@ -193,5 +215,9 @@ export class OllamaService {
     ])
 
     return { message: { content: String(response.content) } }
+  }
+
+  async processFile(filePath: string) {
+    return await this.documentProcessor.processFile(filePath)
   }
 }

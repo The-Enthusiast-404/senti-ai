@@ -6,6 +6,8 @@ import SystemPromptManager from '../SystemPrompts/SystemPromptManager'
 import { useChatStore } from '../../stores/chatStore'
 import { useTabStore } from '../../stores/tabStore'
 import { v4 as uuidv4 } from 'uuid'
+import FileUploader from '../FileUploader/FileUploader'
+import FileList from '../FileList/FileList'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -45,9 +47,31 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
   const [editingTitle, setEditingTitle] = useState('')
   const [showSystemPrompts, setShowSystemPrompts] = useState(false)
   const [selectedSystemPrompt, setSelectedSystemPrompt] = useState<SystemPrompt | null>(null)
+  const [files, setFiles] = useState<
+    Array<{
+      id: string
+      filename: string
+      chunks: number
+      createdAt: string
+    }>
+  >([])
 
   useEffect(() => {
     loadChats()
+  }, [])
+
+  useEffect(() => {
+    const loadFiles = async () => {
+      try {
+        const response = await window.api.file.getAll()
+        if (response.success) {
+          setFiles(response.data)
+        }
+      } catch (error) {
+        console.error('Failed to load files:', error)
+      }
+    }
+    loadFiles()
   }, [])
 
   const createNewChat = async () => {
@@ -277,6 +301,28 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
     }
   }
 
+  const handleFileUpload = async (filePath: string) => {
+    try {
+      const response = await window.api.file.process(filePath)
+      if (response.success) {
+        setFiles((prev) => [...prev, response.data])
+      }
+    } catch (error) {
+      console.error('Failed to process file:', error)
+    }
+  }
+
+  const handleFileDelete = async (fileId: string) => {
+    try {
+      const response = await window.api.file.delete(fileId)
+      if (response.success) {
+        setFiles((prev) => prev.filter((file) => file.id !== fileId))
+      }
+    } catch (error) {
+      console.error('Failed to delete file:', error)
+    }
+  }
+
   return (
     <div className="flex h-full bg-white dark:bg-dark-400">
       {/* Chat History Sidebar */}
@@ -368,6 +414,15 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
               </div>
             ))}
           </div>
+          <div className="border-t border-gray-200 dark:border-dark-100 mt-4">
+            <div className="p-4">
+              <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-4">Files</h3>
+              <div className="space-y-4">
+                <FileUploader onUpload={handleFileUpload} />
+                <FileList files={files} onDelete={handleFileDelete} />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -424,10 +479,10 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
         </div>
 
         {/* Input Form */}
-        <div className="flex-none border-t border-gray-200 dark:border-dark-100 p-4 bg-white dark:bg-dark-50">
-          <div className="flex flex-col space-y-2">
+        <div className="flex-none border-t border-gray-200 dark:border-dark-100 bg-white dark:bg-dark-50">
+          <div className="flex flex-col">
             {selectedSystemPrompt && (
-              <div className="flex items-center space-x-2 px-4 py-2 bg-gray-50 rounded-lg border border-gray-200 mb-4">
+              <div className="flex items-center space-x-2 px-4 py-2 bg-gray-50 rounded-lg border border-gray-200 mx-4 mt-4">
                 <span className="text-sm text-gray-600">
                   Using prompt: {selectedSystemPrompt.name}
                 </span>
@@ -446,26 +501,43 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                 </button>
               </div>
             )}
-            <form onSubmit={handleSubmit} className="flex space-x-4">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                className="flex-1 bg-gray-50 dark:bg-dark-100 text-gray-900 dark:text-gray-100 rounded-full px-6 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-200 dark:border-dark-100"
-                placeholder="Type something..."
-                disabled={tabState.isLoading}
-              />
-              <button
-                type="submit"
-                className={`px-6 py-3 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  tabState.isLoading
-                    ? 'bg-gray-100 dark:bg-dark-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-                disabled={tabState.isLoading}
-              >
-                Send
-              </button>
+
+            {/* Add FileList above the input */}
+            {files.length > 0 && (
+              <div className="mx-4 mt-4">
+                <FileList files={files} onDelete={handleFileDelete} compact />
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="p-4">
+              <div className="flex items-end space-x-2">
+                <div className="flex-1 flex items-end">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      className="w-full bg-gray-50 dark:bg-dark-100 text-gray-900 dark:text-gray-100 rounded-lg pl-4 pr-20 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-200 dark:border-dark-100"
+                      placeholder="Type something..."
+                      disabled={tabState.isLoading}
+                    />
+                    <div className="absolute right-2 bottom-2 flex items-center space-x-1">
+                      <FileUploader onUpload={handleFileUpload} />
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  className={`px-6 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    tabState.isLoading
+                      ? 'bg-gray-100 dark:bg-dark-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                  disabled={tabState.isLoading}
+                >
+                  Send
+                </button>
+              </div>
             </form>
           </div>
         </div>

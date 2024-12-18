@@ -9,6 +9,12 @@ interface ChatStore {
   isLoading: boolean
   currentModel: string
   isSidebarOpen: boolean
+  files: Array<{
+    id: string
+    filename: string
+    chunks: number
+    createdAt: string
+  }>
 
   // Actions (these will call the electron API endpoints)
   loadChats: () => Promise<void>
@@ -19,6 +25,9 @@ interface ChatStore {
   sendMessage: (content: string, type: 'text' | 'image') => Promise<void>
   setCurrentModel: (model: string) => Promise<void>
   toggleSidebar: () => void
+  loadFiles: () => Promise<void>
+  addFile: (file: any) => void
+  removeFile: (id: string) => void
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -28,6 +37,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   isLoading: false,
   currentModel: 'llama2',
   isSidebarOpen: true,
+  files: [],
 
   loadChats: async () => {
     try {
@@ -148,5 +158,20 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
   },
 
-  toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen }))
+  toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+
+  loadFiles: async () => {
+    try {
+      const response = await window.api.file.getAll()
+      if (response.success) {
+        set({ files: response.data })
+      }
+    } catch (error) {
+      console.error('Failed to load files:', error)
+    }
+  },
+
+  addFile: (file) => set((state) => ({ files: [...state.files, file] })),
+
+  removeFile: (id) => set((state) => ({ files: state.files.filter((f) => f.id !== id) }))
 }))

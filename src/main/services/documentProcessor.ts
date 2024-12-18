@@ -4,39 +4,53 @@ import { Document } from 'langchain/document'
 import { MemoryVectorStore } from 'langchain/vectorstores/memory'
 import * as fs from 'fs'
 import * as path from 'path'
-import { app } from 'electron'
 import { v4 as uuidv4 } from 'uuid'
 
-export interface ProcessedDocument {
-  id: string
+interface FileMetadata {
+  documentId: string
   filename: string
-  chunks: number
-  createdAt: string
+  extension: string
+  size: number
+  uploadedAt: string
+  lastAccessed?: string
 }
 
 export class DocumentProcessor {
   private embeddings: OllamaEmbeddings
   private vectorStore: MemoryVectorStore | null = null
+  private metadata: Map<string, FileMetadata> = new Map()
 
   constructor() {
     this.embeddings = new OllamaEmbeddings({
       model: 'nomic-embed-text',
       baseUrl: 'http://localhost:11434'
     })
-    this.initializeVectorStore()
   }
 
   private async initializeVectorStore() {
-    this.vectorStore = await MemoryVectorStore.fromTexts(
-      ['initialization'],
-      [{ initialized: true }],
-      this.embeddings
-    )
+    this.vectorStore = await MemoryVectorStore.fromTexts([], [], this.embeddings)
   }
 
-  async processFile(filePath: string): Promise<ProcessedDocument> {
+  async processFile(filePath: string) {
+    if (!this.vectorStore) {
+      await this.initializeVectorStore()
+    }
+
     const fileContent = fs.readFileSync(filePath, 'utf-8')
     const filename = path.basename(filePath)
+    const extension = path.extname(filePath)
+    const stats = fs.statSync(filePath)
+
+    const documentId = uuidv4()
+    const metadata: FileMetadata = {
+      documentId,
+      filename,
+      extension,
+      size: stats.size,
+      uploadedAt: new Date().toISOString()
+    }
+
+    this.metadata.set(documentId, metadata)
 
     const splitter = new RecursiveCharacterTextSplitter({
       chunkSize: 1000,
@@ -44,20 +58,13 @@ export class DocumentProcessor {
     })
 
     const docs = await splitter.createDocuments([fileContent])
-    const documentId = uuidv4()
-
     const processedDocs = docs.map((doc) => {
       doc.metadata = {
         ...doc.metadata,
-        documentId,
-        filename
+        ...metadata
       }
       return doc
     })
-
-    if (!this.vectorStore) {
-      await this.initializeVectorStore()
-    }
 
     if (this.vectorStore) {
       await this.vectorStore.addDocuments(processedDocs)
@@ -67,7 +74,7 @@ export class DocumentProcessor {
       id: documentId,
       filename,
       chunks: docs.length,
-      createdAt: new Date().toISOString()
+      createdAt: metadata.uploadedAt
     }
   }
 
@@ -77,6 +84,15 @@ export class DocumentProcessor {
     }
 
     const results = await this.vectorStore.similaritySearch(query, numResults)
+
+    // Update last accessed timestamp for retrieved documents
+    results.forEach((doc) => {
+      const metadata = this.metadata.get(doc.metadata.documentId)
+      if (metadata) {
+        metadata.lastAccessed = new Date().toISOString()
+      }
+    })
+
     return results
   }
 
@@ -86,5 +102,11 @@ export class DocumentProcessor {
     await this.vectorStore.delete({
       filter: { documentId }
     })
+
+    this.metadata.delete(documentId)
+  }
+
+  getDocumentMetadata(documentId: string): FileMetadata | undefined {
+    return this.metadata.get(documentId)
   }
 }

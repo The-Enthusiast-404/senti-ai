@@ -21,7 +21,11 @@ const api = {
     delete: (id) => ipcRenderer.invoke('systemPrompt:delete', id)
   },
   generateCode: (prompt: string) => ipcRenderer.invoke('code:generate', prompt),
-  getStockData: (ticker: string) => ipcRenderer.invoke('stock:getData', ticker)
+  getStockData: (ticker: string) => ipcRenderer.invoke('stock:getData', ticker),
+  file: {
+    process: (filePath: string) => ipcRenderer.invoke('file:process', filePath),
+    delete: (documentId: string) => ipcRenderer.invoke('file:delete', documentId)
+  }
 }
 
 contextBridge.exposeInMainWorld('api', api)
