@@ -15,6 +15,8 @@ export default function FileUploader({ onUpload }: FileUploaderProps) {
       for (const file of files) {
         await onUpload(file.path)
       }
+    } catch (error) {
+      console.error('Error uploading file:', error)
     } finally {
       setIsUploading(false)
       if (fileInputRef.current) {
@@ -36,7 +38,7 @@ export default function FileUploader({ onUpload }: FileUploaderProps) {
         onChange={handleFileSelect}
         className="hidden"
         multiple
-        accept=".txt,.md,.pdf,.doc,.docx"
+        accept=".txt,.md,.pdf,.doc,.docx,.csv,.json,.js,.ts,.jsx,.tsx,.html,.css,.py,.java,.cpp,.c,.rb,.php,.sql,.xml,.yaml,.yml"
       />
       <button
         onClick={handleClick}
