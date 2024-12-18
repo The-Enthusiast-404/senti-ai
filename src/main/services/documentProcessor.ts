@@ -99,11 +99,22 @@ export class DocumentProcessor {
   async deleteDocument(documentId: string): Promise<void> {
     if (!this.vectorStore) return
 
-    await this.vectorStore.delete({
-      filter: { documentId }
-    })
+    try {
+      // Get all documents from vector store
+      const allDocs = await this.vectorStore.similaritySearch('', 1000)
 
-    this.metadata.delete(documentId)
+      // Filter out the document we want to delete
+      const remainingDocs = allDocs.filter((doc) => doc.metadata.documentId !== documentId)
+
+      // Create a new vector store with remaining documents
+      this.vectorStore = await MemoryVectorStore.fromDocuments(remainingDocs, this.embeddings)
+
+      // Remove from metadata
+      this.metadata.delete(documentId)
+    } catch (error) {
+      console.error('Error deleting document:', error)
+      throw new Error('Failed to delete document')
+    }
   }
 
   getDocumentMetadata(documentId: string): FileMetadata | undefined {
