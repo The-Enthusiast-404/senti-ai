@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import ModelSelector from '../ModelSelector/ModelSelector'
 import MessageContent from './MessageContent'
-import ImageUpload from './ImageUpload'
+
 import SystemPromptManager from '../SystemPrompts/SystemPromptManager'
 import { useChatStore } from '../../stores/chatStore'
 import { useTabStore } from '../../stores/tabStore'
@@ -43,7 +43,6 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
   const [input, setInput] = useState('')
   const [editingChatId, setEditingChatId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
-  const [showImageUpload, setShowImageUpload] = useState(false)
   const [showSystemPrompts, setShowSystemPrompts] = useState(false)
   const [selectedSystemPrompt, setSelectedSystemPrompt] = useState<SystemPrompt | null>(null)
 
@@ -177,7 +176,6 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
       type: 'image' as const
     }
     await sendMessage(base64Image, 'image')
-    setShowImageUpload(false)
 
     try {
       const response = await window.api.chat({
@@ -427,61 +425,49 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
 
         {/* Input Form */}
         <div className="flex-none border-t border-gray-200 dark:border-dark-100 p-4 bg-white dark:bg-dark-50">
-          {showImageUpload ? (
-            <div className="space-y-4">
-              <ImageUpload onImageSelect={handleImageSelect} />
-              <button
-                onClick={() => setShowImageUpload(false)}
-                className="w-full py-2 text-gray-400 hover:text-white"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col space-y-2">
-              {selectedSystemPrompt && (
-                <div className="flex items-center space-x-2 px-4 py-2 bg-gray-50 rounded-lg border border-gray-200 mb-4">
-                  <span className="text-sm text-gray-600">
-                    Using prompt: {selectedSystemPrompt.name}
-                  </span>
-                  <button
-                    onClick={() => setSelectedSystemPrompt(null)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              )}
-              <form onSubmit={handleSubmit} className="flex space-x-4">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  className="flex-1 bg-gray-50 dark:bg-dark-100 text-gray-900 dark:text-gray-100 rounded-full px-6 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-200 dark:border-dark-100"
-                  placeholder="Type something..."
-                  disabled={tabState.isLoading}
-                />
+          <div className="flex flex-col space-y-2">
+            {selectedSystemPrompt && (
+              <div className="flex items-center space-x-2 px-4 py-2 bg-gray-50 rounded-lg border border-gray-200 mb-4">
+                <span className="text-sm text-gray-600">
+                  Using prompt: {selectedSystemPrompt.name}
+                </span>
                 <button
-                  type="submit"
-                  className={`px-6 py-3 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    tabState.isLoading
-                      ? 'bg-gray-100 dark:bg-dark-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
-                  disabled={tabState.isLoading}
+                  onClick={() => setSelectedSystemPrompt(null)}
+                  className="text-gray-400 hover:text-gray-600"
                 >
-                  Send
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
                 </button>
-              </form>
-            </div>
-          )}
+              </div>
+            )}
+            <form onSubmit={handleSubmit} className="flex space-x-4">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                className="flex-1 bg-gray-50 dark:bg-dark-100 text-gray-900 dark:text-gray-100 rounded-full px-6 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-200 dark:border-dark-100"
+                placeholder="Type something..."
+                disabled={tabState.isLoading}
+              />
+              <button
+                type="submit"
+                className={`px-6 py-3 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  tabState.isLoading
+                    ? 'bg-gray-100 dark:bg-dark-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+                disabled={tabState.isLoading}
+              >
+                Send
+              </button>
+            </form>
+          </div>
         </div>
       </div>
 
