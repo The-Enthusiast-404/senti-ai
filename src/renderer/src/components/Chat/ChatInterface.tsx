@@ -14,6 +14,11 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   type: 'text' | 'image'
+  sources?: Array<{
+    title: string
+    url: string
+    domain: string
+  }>
 }
 
 interface Chat {
@@ -162,7 +167,8 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
         const assistantMessage = {
           role: 'assistant' as const,
           content: response.data.content,
-          type: 'text' as const
+          type: 'text' as const,
+          sources: response.data.sources
         }
 
         updateTabState(tabId, {
@@ -479,6 +485,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                   content={message.content}
                   type={message.type}
                   isUser={message.role === 'user'}
+                  sources={message.role === 'assistant' ? message.sources : undefined}
                 />
               </div>
             </div>

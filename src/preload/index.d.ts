@@ -2,7 +2,11 @@ import { ElectronAPI } from '@electron-toolkit/preload'
 
 declare global {
   interface Window {
-    electron: ElectronAPI
+    electron: {
+      shell: {
+        openExternal: (url: string) => Promise<void>
+      }
+    }
     api: {
       chat: (params: {
         chatId: string | null

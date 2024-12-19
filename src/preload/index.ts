@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, shell } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 const api = {
@@ -31,4 +31,9 @@ const api = {
 }
 
 contextBridge.exposeInMainWorld('api', api)
-contextBridge.exposeInMainWorld('electron', electronAPI)
+contextBridge.exposeInMainWorld('electron', {
+  ...electronAPI,
+  shell: {
+    openExternal: (url: string) => shell.openExternal(url)
+  }
+})

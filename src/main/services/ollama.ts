@@ -88,10 +88,8 @@ export class OllamaService {
         ? `Context:\n${contextDocs
             .map((doc) => {
               const source =
-                doc.metadata.type === 'web_search'
-                  ? `[${doc.metadata.domain}](${doc.metadata.source})`
-                  : doc.metadata.source
-              return `${doc.pageContent}\nSource: ${source}`
+                doc.metadata.type === 'web_search' ? doc.metadata.domain : doc.metadata.source
+              return `${doc.pageContent}\n\nSource: [${source}](${doc.metadata.source})`
             })
             .join('\n\n')}`
         : ''
@@ -149,7 +147,12 @@ export class OllamaService {
 
     return {
       chatId: newChatId,
-      content: String(response.content)
+      content: String(response.content),
+      sources: contextDocs.map((doc) => ({
+        title: doc.metadata.title || doc.metadata.domain,
+        url: doc.metadata.source,
+        domain: doc.metadata.domain
+      }))
     }
   }
 
