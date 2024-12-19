@@ -1,14 +1,8 @@
 import { ChatOllama } from '@langchain/community/chat_models/ollama'
-import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages'
+import { BaseMessage, HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages'
 import { DatabaseService } from './database'
-import { v4 as uuidv4 } from 'uuid'
 import { DocumentProcessor } from './documentProcessor'
-import { StringOutputParser } from '@langchain/core/output_parsers'
-import { RunnableSequence } from '@langchain/core/runnables'
-import { formatDocumentsAsString } from 'langchain/util/document'
-import { ProcessedDocument } from './documentProcessor'
-import { WebSearchService } from './webSearch'
-import { SystemPrompt } from './database'
+import { v4 as uuidv4 } from 'uuid'
 
 interface Message {
   role: 'user' | 'assistant' | 'system'
@@ -26,23 +20,27 @@ interface ImageGenerationResponse {
 export class OllamaService {
   private models: Map<string, ChatOllama>
   private db: DatabaseService
+  private documentProcessor: DocumentProcessor
 
   constructor() {
     this.models = new Map()
     this.db = new DatabaseService()
+    this.documentProcessor = new DocumentProcessor()
   }
 
-  private getModel(modelName: string): ChatOllama {
-    if (!this.models.has(modelName)) {
+  private getModel(modelName: string, useContext: boolean = false): ChatOllama {
+    const modelKey = `${modelName}-${useContext}`
+    if (!this.models.has(modelKey)) {
       this.models.set(
-        modelName,
+        modelKey,
         new ChatOllama({
           baseUrl: 'http://localhost:11434',
-          model: modelName
+          model: modelName,
+          context: useContext
         })
       )
     }
-    return this.models.get(modelName)!
+    return this.models.get(modelKey)!
   }
 
   async getAvailableModels(): Promise<string[]> {
@@ -52,35 +50,58 @@ export class OllamaService {
   }
 
   async chat(chatId: string | null, messages: Message[], modelName: string) {
-    const model = this.getModel(modelName)
-    const systemMessage = messages.find((m) => m.role === 'system')
-    const userMessages = messages.filter((m) => m.role !== 'system')
+    const model = this.getModel(modelName, true)
+    const lastMessage = messages[messages.length - 1]
+
+    // Get relevant documents for the last message
+    const relevantDocs = await this.documentProcessor.queryDocuments(lastMessage.content)
 
     let newChatId = chatId
     if (!newChatId) {
       newChatId = uuidv4()
       await this.db.createChat({
         id: newChatId,
-        title: userMessages[userMessages.length - 1].content.slice(0, 50) + '...',
+        title: lastMessage.content.slice(0, 50) + '...',
         model: model.model,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       })
     }
 
-    const prompt = systemMessage
-      ? `${systemMessage.content}\n\nUser: ${userMessages[userMessages.length - 1].content}`
-      : userMessages[userMessages.length - 1].content
+    // Prepare context from relevant documents
+    let contextString = ''
+    if (relevantDocs.length > 0) {
+      contextString = `Relevant context from uploaded files:\n${relevantDocs
+        .map((doc) => `[${doc.metadata.filename}]: ${doc.pageContent.substring(0, 500)}...`)
+        .join('\n\n')}\n\n`
+    }
 
-    const chain = RunnableSequence.from([model, new StringOutputParser()])
-    const response = await chain.invoke(prompt)
+    // Convert messages to LangChain format with context
+    const langChainMessages = [
+      new SystemMessage(
+        contextString
+          ? `You have access to the following context. Use it when relevant to answer questions:\n${contextString}`
+          : 'You are a helpful assistant.'
+      ),
+      ...messages.map((msg) => {
+        if (msg.role === 'user') {
+          return new HumanMessage(msg.content)
+        } else if (msg.role === 'assistant') {
+          return new AIMessage(msg.content)
+        } else {
+          return new SystemMessage(msg.content)
+        }
+      })
+    ]
+
+    const response = await model.invoke(langChainMessages)
 
     // Save messages to database
     await this.db.addMessage({
       id: uuidv4(),
       chatId: newChatId,
       role: 'user',
-      content: userMessages[userMessages.length - 1].content,
+      content: lastMessage.content,
       type: 'text',
       createdAt: new Date().toISOString()
     })
@@ -89,14 +110,14 @@ export class OllamaService {
       id: uuidv4(),
       chatId: newChatId,
       role: 'assistant',
-      content: response,
+      content: String(response.content),
       type: 'text',
       createdAt: new Date().toISOString()
     })
 
     return {
       chatId: newChatId,
-      content: response
+      content: String(response.content)
     }
   }
 
@@ -144,62 +165,6 @@ export class OllamaService {
 
     const data = await response.json()
     return data.data[0].b64_json
-  }
-
-  async processFile(filePath: string): Promise<ProcessedDocument> {
-    return await this.documentProcessor.processFile(filePath)
-  }
-
-  async chatWithRAG(chatId: string | null, messages: Message[], modelName: string) {
-    const model = this.getModel(modelName)
-    const lastMessage = messages[messages.length - 1]
-    const relevantDocs = await this.documentProcessor.queryDocuments(lastMessage.content)
-
-    let newChatId = chatId
-    if (!newChatId) {
-      newChatId = uuidv4()
-      await this.db.createChat({
-        id: newChatId,
-        title: lastMessage.content.slice(0, 50) + '...',
-        model: model.model,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      })
-    }
-
-    const context = formatDocumentsAsString(relevantDocs)
-    const prompt = `Context: ${context}\n\nQuestion: ${lastMessage.content}\n\nAnswer: `
-
-    const chain = RunnableSequence.from([model, new StringOutputParser()])
-    const response = await chain.invoke(prompt)
-
-    // Save message to database
-    await this.db.addMessage({
-      id: uuidv4(),
-      chatId: newChatId,
-      role: 'user',
-      content: lastMessage.content,
-      type: 'text',
-      createdAt: new Date().toISOString()
-    })
-
-    await this.db.addMessage({
-      id: uuidv4(),
-      chatId: newChatId,
-      role: 'assistant',
-      content: response,
-      type: 'text',
-      createdAt: new Date().toISOString()
-    })
-
-    return {
-      chatId: newChatId,
-      content: response
-    }
-  }
-
-  async removeProcessedFile(fileId: string): Promise<void> {
-    await this.documentProcessor.deleteDocument(fileId)
   }
 
   async getSystemPrompts(): Promise<SystemPrompt[]> {
@@ -250,5 +215,9 @@ export class OllamaService {
     ])
 
     return { message: { content: String(response.content) } }
+  }
+
+  async processFile(filePath: string) {
+    return await this.documentProcessor.processFile(filePath)
   }
 }

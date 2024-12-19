@@ -367,6 +367,26 @@ app.whenReady().then(() => {
     }
   })
 
+  ipcMain.handle('file:process', async (_, filePath: string) => {
+    try {
+      const result = await ollamaService.processFile(filePath)
+      return { success: true, data: result }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('file:delete', async (_, documentId: string) => {
+    try {
+      await ollamaService.documentProcessor.deleteDocument(documentId)
+      return { success: true }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
   createWindow()
 
   app.on('activate', function () {
