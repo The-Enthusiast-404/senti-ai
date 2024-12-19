@@ -180,12 +180,30 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
   },
 
-  addFile: (file) => set((state) => ({ files: [...state.files, file] })),
+  addFile: (file) =>
+    set((state) => {
+      return {
+        files: [...state.files, file],
+        isInternetSearchEnabled: false
+      }
+    }),
 
-  removeFile: (id) => set((state) => ({ files: state.files.filter((f) => f.id !== id) })),
+  removeFile: (id) =>
+    set((state) => {
+      const newFiles = state.files.filter((f) => f.id !== id)
+      return {
+        files: newFiles,
+        isInternetSearchEnabled: newFiles.length === 0 ? state.isInternetSearchEnabled : false
+      }
+    }),
 
-  toggleInternetSearch: () =>
+  toggleInternetSearch: () => {
+    const state = get()
+    if (state.files.length > 0 && !state.isInternetSearchEnabled) {
+      return
+    }
     set((state) => ({
       isInternetSearchEnabled: !state.isInternetSearchEnabled
     }))
+  }
 }))

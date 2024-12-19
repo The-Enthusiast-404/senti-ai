@@ -54,11 +54,6 @@ export class OllamaService {
   }
 
   async chat(chatId: string | null, messages: Message[], useInternetSearch: boolean) {
-    console.log('Internet search enabled:', useInternetSearch)
-
-    const model = this.getModel(this.currentModel, true)
-    console.log('Using model:', model.model)
-
     const lastMessage = messages[messages.length - 1]
     let contextDocs = []
 
@@ -66,13 +61,8 @@ export class OllamaService {
     console.log('Found local documents:', relevantDocs.length)
 
     if (relevantDocs.length > 0) {
-      console.log(
-        'Local document contexts:',
-        relevantDocs.map((doc) => ({
-          content: doc.pageContent.slice(0, 100) + '...',
-          source: doc.metadata.filename
-        }))
-      )
+      useInternetSearch = false
+      console.log('Internet search disabled due to local documents being present')
     }
 
     if (useInternetSearch) {
@@ -125,7 +115,7 @@ export class OllamaService {
       await this.db.createChat({
         id: newChatId,
         title: lastMessage.content.slice(0, 50) + '...',
-        model: model.model,
+        model: this.getModel(this.currentModel, true).model,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       })
@@ -148,7 +138,7 @@ export class OllamaService {
       })
     ]
 
-    const response = await model.invoke(langChainMessages)
+    const response = await this.getModel(this.currentModel, true).invoke(langChainMessages)
 
     await this.db.addMessage({
       id: uuidv4(),

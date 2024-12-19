@@ -461,9 +461,17 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                 <Switch
                   checked={isInternetSearchEnabled}
                   onCheckedChange={toggleInternetSearch}
+                  disabled={files.length > 0}
                   aria-label="Toggle internet search"
                 />
-                <span className="text-sm text-gray-400">Internet Search</span>
+                <span className={`text-sm ${files.length > 0 ? 'text-gray-500' : 'text-gray-400'}`}>
+                  Internet Search
+                  {files.length > 0 && (
+                    <span className="block text-xs text-gray-500">
+                      (Disabled when files are uploaded)
+                    </span>
+                  )}
+                </span>
               </div>
             </div>
           </div>
