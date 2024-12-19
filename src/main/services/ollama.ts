@@ -2,6 +2,7 @@ import { ChatOllama } from '@langchain/community/chat_models/ollama'
 import { BaseMessage, HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages'
 import { DatabaseService } from './database'
 import { DocumentProcessor } from './documentProcessor'
+import { WebSearchService } from './webSearch'
 import { v4 as uuidv4 } from 'uuid'
 
 interface Message {
@@ -21,11 +22,14 @@ export class OllamaService {
   private models: Map<string, ChatOllama>
   private db: DatabaseService
   private documentProcessor: DocumentProcessor
+  private webSearchService: WebSearchService
+  private currentModel: string = 'llama2'
 
   constructor() {
     this.models = new Map()
     this.db = new DatabaseService()
     this.documentProcessor = new DocumentProcessor()
+    this.webSearchService = new WebSearchService(process.env.BRAVE_API_KEY || '')
   }
 
   private getModel(modelName: string, useContext: boolean = false): ChatOllama {
@@ -49,12 +53,61 @@ export class OllamaService {
     return data.models.map((model: { name: string }) => model.name)
   }
 
-  async chat(chatId: string | null, messages: Message[], modelName: string) {
-    const model = this.getModel(modelName, true)
+  async chat(chatId: string | null, messages: Message[], useInternetSearch: boolean) {
     const lastMessage = messages[messages.length - 1]
+    let contextDocs = []
 
-    // Get relevant documents for the last message
     const relevantDocs = await this.documentProcessor.queryDocuments(lastMessage.content)
+    console.log('Found local documents:', relevantDocs.length)
+
+    if (relevantDocs.length > 0) {
+      useInternetSearch = false
+      console.log('Internet search disabled due to local documents being present')
+    }
+
+    if (useInternetSearch) {
+      try {
+        console.log('Attempting web search for:', lastMessage.content)
+        const webResults = await this.webSearchService.search(lastMessage.content)
+        console.log('Web search results:', webResults.length)
+        contextDocs = [...relevantDocs, ...webResults]
+      } catch (error) {
+        console.error('Web search failed:', error)
+        contextDocs = relevantDocs
+      }
+    } else {
+      contextDocs = relevantDocs
+    }
+
+    const formatContexts = () => {
+      if (contextDocs.length === 0) return ''
+
+      const localDocs = contextDocs.filter((doc) => doc.metadata.type !== 'web_search')
+      const webDocs = contextDocs.filter((doc) => doc.metadata.type === 'web_search')
+
+      const formatDocs = (docs: typeof contextDocs, type: string) => {
+        if (docs.length === 0) return ''
+        return `${type} Sources:\n${docs
+          .map((doc) => {
+            const source =
+              doc.metadata.type === 'web_search' ? doc.metadata.domain : doc.metadata.filename
+            return `${doc.pageContent}\n\nSource: [${source}](${doc.metadata.source || 'local'})`
+          })
+          .join('\n\n')}`
+      }
+
+      const parts = []
+      if (localDocs.length > 0) parts.push(formatDocs(localDocs, 'Local'))
+      if (webDocs.length > 0) parts.push(formatDocs(webDocs, 'Web'))
+
+      return `Context:\n${parts.join('\n\n')}`
+    }
+
+    const contextString = formatContexts()
+    console.log(
+      'Using context string:',
+      contextString ? 'Yes (length: ' + contextString.length + ')' : 'No'
+    )
 
     let newChatId = chatId
     if (!newChatId) {
@@ -62,21 +115,12 @@ export class OllamaService {
       await this.db.createChat({
         id: newChatId,
         title: lastMessage.content.slice(0, 50) + '...',
-        model: model.model,
+        model: this.getModel(this.currentModel, true).model,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       })
     }
 
-    // Prepare context from relevant documents
-    let contextString = ''
-    if (relevantDocs.length > 0) {
-      contextString = `Relevant context from uploaded files:\n${relevantDocs
-        .map((doc) => `[${doc.metadata.filename}]: ${doc.pageContent.substring(0, 500)}...`)
-        .join('\n\n')}\n\n`
-    }
-
-    // Convert messages to LangChain format with context
     const langChainMessages = [
       new SystemMessage(
         contextString
@@ -94,9 +138,8 @@ export class OllamaService {
       })
     ]
 
-    const response = await model.invoke(langChainMessages)
+    const response = await this.getModel(this.currentModel, true).invoke(langChainMessages)
 
-    // Save messages to database
     await this.db.addMessage({
       id: uuidv4(),
       chatId: newChatId,
@@ -117,7 +160,18 @@ export class OllamaService {
 
     return {
       chatId: newChatId,
-      content: String(response.content)
+      content: String(response.content),
+      sources: contextDocs.map((doc) => ({
+        title:
+          doc.metadata.type === 'web_search'
+            ? doc.metadata.domain
+            : doc.metadata.filename || 'Local Document',
+        url:
+          doc.metadata.type === 'web_search'
+            ? doc.metadata.source
+            : `file://${doc.metadata.source}`,
+        domain: doc.metadata.type === 'web_search' ? doc.metadata.domain : undefined
+      }))
     }
   }
 
@@ -134,6 +188,8 @@ export class OllamaService {
   }
 
   setModel(modelName: string) {
+    console.log('Setting model to:', modelName)
+    this.currentModel = modelName
     this.getModel(modelName)
   }
 

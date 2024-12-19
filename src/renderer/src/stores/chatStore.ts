@@ -15,6 +15,7 @@ interface ChatStore {
     chunks: number
     createdAt: string
   }>
+  isInternetSearchEnabled: boolean
 
   // Actions (these will call the electron API endpoints)
   loadChats: () => Promise<void>
@@ -28,6 +29,7 @@ interface ChatStore {
   loadFiles: () => Promise<void>
   addFile: (file: any) => void
   removeFile: (id: string) => void
+  toggleInternetSearch: () => void
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -38,6 +40,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   currentModel: 'llama2',
   isSidebarOpen: true,
   files: [],
+  isInternetSearchEnabled: false,
 
   loadChats: async () => {
     try {
@@ -106,7 +109,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   sendMessage: async (content, type = 'text') => {
-    const { messages, currentChatId } = get()
+    const { messages, currentChatId, isInternetSearchEnabled } = get()
     const userMessage = { role: 'user' as const, content, type }
 
     set({
@@ -117,14 +120,20 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       const response = await window.api.chat({
         chatId: currentChatId,
-        messages: [...messages, userMessage]
+        messages: [...messages, userMessage],
+        useInternetSearch: isInternetSearchEnabled
       })
 
       if (response.success && response.data?.content && response.data?.chatId) {
         set((state) => ({
           messages: [
             ...state.messages,
-            { role: 'assistant', content: response.data!.content, type: 'text' }
+            {
+              role: 'assistant',
+              content: response.data!.content,
+              type: 'text',
+              sources: response.data.sources
+            }
           ],
           currentChatId: response.data.chatId
         }))
@@ -171,7 +180,30 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
   },
 
-  addFile: (file) => set((state) => ({ files: [...state.files, file] })),
+  addFile: (file) =>
+    set((state) => {
+      return {
+        files: [...state.files, file],
+        isInternetSearchEnabled: false
+      }
+    }),
 
-  removeFile: (id) => set((state) => ({ files: state.files.filter((f) => f.id !== id) }))
+  removeFile: (id) =>
+    set((state) => {
+      const newFiles = state.files.filter((f) => f.id !== id)
+      return {
+        files: newFiles,
+        isInternetSearchEnabled: newFiles.length === 0 ? state.isInternetSearchEnabled : false
+      }
+    }),
+
+  toggleInternetSearch: () => {
+    const state = get()
+    if (state.files.length > 0 && !state.isInternetSearchEnabled) {
+      return
+    }
+    set((state) => ({
+      isInternetSearchEnabled: !state.isInternetSearchEnabled
+    }))
+  }
 }))

@@ -1,10 +1,11 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, shell } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 const api = {
   chat: (params: {
     chatId: string | null
     messages: { role: 'user' | 'assistant'; content: string }[]
+    useInternetSearch: boolean
   }) => ipcRenderer.invoke('ollama:chat', params),
   setModel: (modelName: string) => ipcRenderer.invoke('ollama:setModel', modelName),
   getModels: () => ipcRenderer.invoke('ollama:getModels'),
@@ -23,10 +24,16 @@ const api = {
   generateCode: (prompt: string) => ipcRenderer.invoke('code:generate', prompt),
   getStockData: (ticker: string) => ipcRenderer.invoke('stock:getData', ticker),
   file: {
+    getAll: () => ipcRenderer.invoke('file:getAll'),
     process: (filePath: string) => ipcRenderer.invoke('file:process', filePath),
     delete: (documentId: string) => ipcRenderer.invoke('file:delete', documentId)
   }
 }
 
 contextBridge.exposeInMainWorld('api', api)
-contextBridge.exposeInMainWorld('electron', electronAPI)
+contextBridge.exposeInMainWorld('electron', {
+  ...electronAPI,
+  shell: {
+    openExternal: (url: string) => shell.openExternal(url)
+  }
+})

@@ -8,11 +8,17 @@ import { useTabStore } from '../../stores/tabStore'
 import { v4 as uuidv4 } from 'uuid'
 import FileUploader from '../FileUploader/FileUploader'
 import FileList from '../FileList/FileList'
+import { Switch } from '../ui/Switch'
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
   type: 'text' | 'image'
+  sources?: Array<{
+    title: string
+    url: string
+    domain: string
+  }>
 }
 
 interface Chat {
@@ -40,7 +46,7 @@ interface ChatInterfaceProps {
 export default function ChatInterface({ tabId }: ChatInterfaceProps) {
   const { updateTabState, getTabState } = useTabStore()
   const tabState = getTabState(tabId)
-  const { chats, loadChats } = useChatStore()
+  const { chats, loadChats, isInternetSearchEnabled, toggleInternetSearch } = useChatStore()
 
   const [input, setInput] = useState('')
   const [editingChatId, setEditingChatId] = useState<string | null>(null)
@@ -154,14 +160,15 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
       const response = await window.api.chat({
         chatId: currentState.currentChatId,
         messages: [...currentState.messages, userMessage],
-        model: currentState.currentModel
+        useInternetSearch: isInternetSearchEnabled
       })
 
       if (response.success && response.data) {
         const assistantMessage = {
           role: 'assistant' as const,
           content: response.data.content,
-          type: 'text' as const
+          type: 'text' as const,
+          sources: response.data.sources
         }
 
         updateTabState(tabId, {
@@ -445,7 +452,28 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                 />
               </svg>
             </button>
-            <ModelSelector onModelSelect={handleModelSelect} currentModel={tabState.currentModel} />
+            <div className="flex items-center space-x-4">
+              <ModelSelector
+                onModelSelect={handleModelSelect}
+                currentModel={tabState.currentModel}
+              />
+              <div className="flex items-center space-x-2">
+                <Switch
+                  checked={isInternetSearchEnabled}
+                  onCheckedChange={toggleInternetSearch}
+                  disabled={files.length > 0}
+                  aria-label="Toggle internet search"
+                />
+                <span className={`text-sm ${files.length > 0 ? 'text-gray-500' : 'text-gray-400'}`}>
+                  Internet Search
+                  {files.length > 0 && (
+                    <span className="block text-xs text-gray-500">
+                      (Disabled when files are uploaded)
+                    </span>
+                  )}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -465,6 +493,7 @@ export default function ChatInterface({ tabId }: ChatInterfaceProps) {
                   content={message.content}
                   type={message.type}
                   isUser={message.role === 'user'}
+                  sources={message.role === 'assistant' ? message.sources : undefined}
                 />
               </div>
             </div>

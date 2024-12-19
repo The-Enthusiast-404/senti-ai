@@ -2,7 +2,11 @@ import { ElectronAPI } from '@electron-toolkit/preload'
 
 declare global {
   interface Window {
-    electron: ElectronAPI
+    electron: {
+      shell: {
+        openExternal: (url: string) => Promise<void>
+      }
+    }
     api: {
       chat: (params: {
         chatId: string | null
@@ -11,11 +15,17 @@ declare global {
           content: string
           type: 'text' | 'image'
         }[]
+        useInternetSearch: boolean
       }) => Promise<{
         success: boolean
         data?: {
           chatId: string
           content: string
+          sources?: Array<{
+            title: string
+            url: string
+            domain: string
+          }>
         }
         error?: string
       }>
@@ -78,6 +88,20 @@ declare global {
         data?: any
         error?: string
       }>
+      file: {
+        getAll: () => Promise<{
+          success: boolean
+          data?: Array<{
+            id: string
+            filename: string
+            chunks: number
+            createdAt: string
+          }>
+          error?: string
+        }>
+        process: (filePath: string) => Promise<...>
+        delete: (documentId: string) => Promise<...>
+      }
     }
   }
 }
