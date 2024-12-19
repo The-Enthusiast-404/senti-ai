@@ -19,6 +19,9 @@ export default function MessageContent({ content, type, isUser, sources }: Messa
     return <img src={content} alt="Generated" className="max-w-full rounded-lg" />
   }
 
+  const webSources = sources?.filter((source) => source.domain)
+  const localSources = sources?.filter((source) => !source.domain && source.title)
+
   return (
     <div className="space-y-4">
       <div className={`prose ${isUser ? 'text-white' : 'dark:prose-invert'} max-w-none`}>
@@ -67,26 +70,53 @@ export default function MessageContent({ content, type, isUser, sources }: Messa
         </ReactMarkdown>
       </div>
 
-      {!isUser && sources && sources.length > 0 && (
+      {!isUser && (localSources?.length > 0 || webSources?.length > 0) && (
         <div className="border-t border-gray-700 pt-3 mt-3">
-          <div className="text-sm text-gray-400 mb-2">Sources:</div>
-          <div className="flex flex-wrap gap-2">
-            {sources.map((source, index) => (
-              <a
-                key={index}
-                href={source.url}
-                onClick={(e) => {
-                  e.preventDefault()
-                  window.electron.shell
-                    .openExternal(source.url)
-                    .catch((err) => console.error('Failed to open URL:', err))
-                }}
-                className="text-sm px-3 py-1 bg-gray-700/50 hover:bg-gray-600/50 rounded-full text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
-              >
-                {source.domain}
-              </a>
-            ))}
-          </div>
+          {localSources?.length > 0 && (
+            <div className="mb-3">
+              <div className="text-sm text-gray-400 mb-2">Local Sources:</div>
+              <div className="flex flex-wrap gap-2">
+                {localSources.map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      window.electron.shell
+                        .openExternal(source.url)
+                        .catch((err) => console.error('Failed to open URL:', err))
+                    }}
+                    className="text-sm px-3 py-1 bg-gray-700/50 hover:bg-gray-600/50 rounded-full text-green-400 hover:text-green-300 transition-colors cursor-pointer"
+                  >
+                    {source.title}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {webSources?.length > 0 && (
+            <div>
+              <div className="text-sm text-gray-400 mb-2">Web Sources:</div>
+              <div className="flex flex-wrap gap-2">
+                {webSources.map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      window.electron.shell
+                        .openExternal(source.url)
+                        .catch((err) => console.error('Failed to open URL:', err))
+                    }}
+                    className="text-sm px-3 py-1 bg-gray-700/50 hover:bg-gray-600/50 rounded-full text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
+                  >
+                    {source.domain}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

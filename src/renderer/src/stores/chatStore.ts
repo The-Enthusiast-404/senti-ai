@@ -109,7 +109,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   sendMessage: async (content, type = 'text') => {
-    const { messages, currentChatId } = get()
+    const { messages, currentChatId, isInternetSearchEnabled } = get()
     const userMessage = { role: 'user' as const, content, type }
 
     set({
@@ -120,14 +120,20 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     try {
       const response = await window.api.chat({
         chatId: currentChatId,
-        messages: [...messages, userMessage]
+        messages: [...messages, userMessage],
+        useInternetSearch: isInternetSearchEnabled
       })
 
       if (response.success && response.data?.content && response.data?.chatId) {
         set((state) => ({
           messages: [
             ...state.messages,
-            { role: 'assistant', content: response.data!.content, type: 'text' }
+            {
+              role: 'assistant',
+              content: response.data!.content,
+              type: 'text',
+              sources: response.data.sources
+            }
           ],
           currentChatId: response.data.chatId
         }))
