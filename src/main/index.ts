@@ -195,10 +195,14 @@ app.whenReady().then(() => {
   ipcMain.on('ping', () => console.log('pong'))
 
   // Ollama IPC handlers
-  ipcMain.handle('ollama:chat', async (_, { chatId, messages, model }) => {
+  ipcMain.handle('ollama:chat', async (_, params) => {
     try {
-      const response = await ollamaService.chat(chatId, messages, model)
-      return { success: true, data: response }
+      const result = await ollamaService.chat(
+        params.chatId,
+        params.messages,
+        params.useInternetSearch
+      )
+      return { success: true, data: result }
     } catch (err) {
       const error = err instanceof Error ? err.message : 'Unknown error occurred'
       return { success: false, error }
@@ -381,6 +385,16 @@ app.whenReady().then(() => {
     try {
       await ollamaService.documentProcessor.deleteDocument(documentId)
       return { success: true }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error occurred'
+      return { success: false, error }
+    }
+  })
+
+  ipcMain.handle('file:getAll', async () => {
+    try {
+      const files = await ollamaService.documentProcessor.getAllDocuments()
+      return { success: true, data: files }
     } catch (err) {
       const error = err instanceof Error ? err.message : 'Unknown error occurred'
       return { success: false, error }

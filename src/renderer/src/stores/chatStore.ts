@@ -15,6 +15,7 @@ interface ChatStore {
     chunks: number
     createdAt: string
   }>
+  isInternetSearchEnabled: boolean
 
   // Actions (these will call the electron API endpoints)
   loadChats: () => Promise<void>
@@ -28,6 +29,7 @@ interface ChatStore {
   loadFiles: () => Promise<void>
   addFile: (file: any) => void
   removeFile: (id: string) => void
+  toggleInternetSearch: () => void
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -38,6 +40,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   currentModel: 'llama2',
   isSidebarOpen: true,
   files: [],
+  isInternetSearchEnabled: false,
 
   loadChats: async () => {
     try {
@@ -173,5 +176,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   addFile: (file) => set((state) => ({ files: [...state.files, file] })),
 
-  removeFile: (id) => set((state) => ({ files: state.files.filter((f) => f.id !== id) }))
+  removeFile: (id) => set((state) => ({ files: state.files.filter((f) => f.id !== id) })),
+
+  toggleInternetSearch: () =>
+    set((state) => ({
+      isInternetSearchEnabled: !state.isInternetSearchEnabled
+    }))
 }))
