@@ -4,9 +4,27 @@ import ChatInterface from '../Chat/ChatInterface'
 import CodeGenerator from '../CodeGeneration/CodeGenerator'
 import StockViewer from '../Stocks/StockViewer'
 import ThemeToggle from '../Theme/ThemeToggle'
+import PDFViewer from '../PDFViewer/PDFViewer'
 
 export default function TabManager() {
   const { tabs, activeTabId, createTab, closeTab, setActiveTab } = useTabStore()
+
+  const getInitialTitle = (type: TabType): string => {
+    switch (type) {
+      case 'chat':
+        return 'New Chat'
+      case 'code':
+        return 'Code Generator'
+      case 'stock':
+        return 'Stock Analysis'
+      case 'pdf':
+        return 'PDF Viewer'
+      case 'settings':
+        return 'Settings'
+      default:
+        return 'New Tab'
+    }
+  }
 
   useEffect(() => {
     if (tabs.length === 0) {
@@ -49,6 +67,17 @@ export default function TabManager() {
             />
           </svg>
         )
+      case 'pdf':
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+            />
+          </svg>
+        )
       default:
         return null
     }
@@ -62,6 +91,8 @@ export default function TabManager() {
         return <CodeGenerator key={tab.id} />
       case 'stock':
         return <StockViewer key={tab.id} />
+      case 'pdf':
+        return <PDFViewer key={tab.id} tabId={tab.id} />
       default:
         return null
     }
@@ -97,10 +128,10 @@ export default function TabManager() {
         </div>
         <ThemeToggle />
         <div className="flex items-center space-x-2 px-2">
-          {['chat', 'code', 'stock'].map((type) => (
+          {['chat', 'code', 'stock', 'pdf'].map((type) => (
             <button
               key={type}
-              onClick={() => createTab(type as TabType)}
+              onClick={() => createTab(type as TabType, getInitialTitle(type as TabType))}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
               title={`New ${type.charAt(0).toUpperCase() + type.slice(1)}`}
             >
