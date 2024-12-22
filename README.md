@@ -1,6 +1,6 @@
 ## Project Overview
 
-This is a desktop project that'll use ollama to run models. It'll use langchain to build the entire app be it chat with olama models, rag system, etc.
+This is a desktop project that uses ollama to run models. It uses langchain to build the entire app be it chat with olama models, rag system, etc.
 
 The motive of this project is to build a Google AI studio like experience on desktop using local models.
 
@@ -13,63 +13,76 @@ The motive of this project is to build a Google AI studio like experience on des
 - Ollama
 - Brave Search API
 
-## Feature Roadmap
+## Implemented Features
 
-### Phase 1: ChatGPT-like Features
+### Chat Interface
 
-- Basic chat interface with Ollama model support
-- Model switching capability (Mistral, Llama, CodeLlama, Phi, Yi, Neural Chat, etc.)
-- Chat history management
-- Conversation export/import
-- System prompt templates
-- Code syntax highlighting and copying
-- Markdown support
-- Multi-modal chat (text and images)
-- Custom instructions for chat personality
-- Prompt library and sharing
+- ✅ Basic chat interface with Ollama model support
+- ✅ Model switching capability
+- ✅ Chat history management
+- ✅ System prompt templates and management
+- ✅ Code syntax highlighting and copying
+- ✅ Markdown support
+- ✅ Custom instructions for chat personality
 
-### Phase 2: Perplexity-like Features
+### Document Processing
 
-- Real-time web search integration via Brave API
-- File upload and processing (PDF, TXT, DOCX)
+- ✅ File upload and processing (TXT support)
+- ✅ RAG implementation with vector storage
+- ✅ Document management (upload, delete, list)
+- ✅ Automatic context switching between internet search and document mode
+
+### UI/UX Features
+
+- ✅ Dark/Light theme support
+- ✅ Tab-based interface
+- ✅ Responsive design
+- ✅ Collapsible sidebar
+- ✅ Modern, clean interface
+
+## Upcoming Features
+
+### Phase 2: Enhanced Features
+
+- Support for more file formats (PDF, DOCX)
 - Web page URL processing and analysis
-- RAG implementation with vector storage
 - Multiple vector DB support (ChromaDB, FAISS)
 - Citation support with direct links to sources
 - Follow-up questions suggestions
+- Code Generation Features
+  - React component generation
+  - TypeScript support
+  - Tailwind CSS integration
+  - Live code preview
+  - Code copying functionality
+  - Syntax highlighting
+- Stock Market Features
+  - Real-time stock data viewing
+  - Interactive stock charts
+  - Multiple timeframe support
+  - Key metrics display
+  - AI-powered market analysis
 
-### Phase 3: v0.dev-like Features
+### Phase 3: Advanced UI Generation
 
 - UI/UX design generation
 - Component library integration
-- Tailwind CSS code generation
-- React component generation
-- Live preview of generated components
 - Design system adherence
-- Responsive design generation
 - Component customization interface
 - Export to various frameworks
-- Design tokens support
-- Interactive design refinement
 
-### Phase 4: Advanced Integration Features
+### Phase 4: Integration Features
 
 - Function calling and tool use
 - Custom plugin system
 - API integration capabilities
 - Workflow automation
 - Browser extension integration
-- Cross-tool interoperability
-- Custom API endpoints
-- Webhook support
 
-### Phase 5: Professional & Team Features
+### Phase 5: Professional Features
 
 - Team collaboration
 - Project management
 - Custom model fine-tuning interface
 - Model performance analytics
 - Usage monitoring and optimization
-- Enterprise security features
-- Role-based access control
-- Audit logs
