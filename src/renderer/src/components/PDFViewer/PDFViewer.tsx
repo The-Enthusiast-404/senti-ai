@@ -16,9 +16,15 @@ export default function PDFViewer({ tabId }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number>(0)
   const [pageNumber, setPageNumber] = useState<number>(1)
   const [pdfFile, setPdfFile] = useState<string | null>(null)
-  const [pageText, setPageText] = useState<string>('')
+  const [chapterText, setChapterText] = useState<string>('')
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [currentModel, setCurrentModel] = useState<string>('llama2')
+  const [bookText, setBookText] = useState<string>('')
+
+  const isChapterStart = (text: string): boolean => {
+    const chapterPatterns = [/^chapter\s+\d+/i, /^\d+\.\s+[A-Z]/, /^[IVX]+\.\s+[A-Z]/]
+    return chapterPatterns.some((pattern) => pattern.test(text.trim()))
+  }
 
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -34,12 +40,69 @@ export default function PDFViewer({ tabId }: PDFViewerProps) {
   const onPageLoadSuccess = async (page: any) => {
     const textContent = await page.getTextContent()
     const text = textContent.items.map((item: any) => item.str).join(' ')
-    setPageText(text)
+
+    if (isChapterStart(text)) {
+      setChapterText(text)
+    } else {
+      setChapterText((prev) => `${prev}\n\n${text}`)
+    }
+  }
+
+  const loadChapterPages = async (startPage: number, pdf: any) => {
+    let chapterText = ''
+    let currentPage = startPage
+
+    while (currentPage <= pdf.numPages) {
+      const page = await pdf.getPage(currentPage)
+      const textContent = await page.getTextContent()
+      const pageText = textContent.items.map((item: any) => item.str).join(' ')
+
+      if (currentPage !== startPage && isChapterStart(pageText)) {
+        break
+      }
+
+      chapterText += `\n\n${pageText}`
+      currentPage++
+    }
+
+    setChapterText(chapterText.trim())
+  }
+
+  const loadAllPages = async (pdf: any) => {
+    let fullText = ''
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const textContent = await page.getTextContent()
+      const pageText = textContent.items.map((item: any) => item.str).join(' ')
+      fullText += `\n\n${pageText}`
+    }
+    setBookText(fullText.trim())
   }
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages)
     setPageNumber(1)
+    if (pdfFile) {
+      const pdf = pdfjs.getDocument(pdfFile).promise
+      pdf.then((doc) => {
+        loadChapterPages(1, doc)
+        loadAllPages(doc)
+      })
+    }
+  }
+
+  const changePage = async (newPage: number) => {
+    setPageNumber(newPage)
+    if (pdfFile) {
+      const pdf = await pdfjs.getDocument(pdfFile).promise
+      const page = await pdf.getPage(newPage)
+      const textContent = await page.getTextContent()
+      const pageText = textContent.items.map((item: any) => item.str).join(' ')
+
+      if (isChapterStart(pageText)) {
+        await loadChapterPages(newPage, pdf)
+      }
+    }
   }
 
   return (
@@ -75,7 +138,7 @@ export default function PDFViewer({ tabId }: PDFViewerProps) {
             <div className="flex flex-col items-center">
               <div className="mb-4 flex items-center gap-4">
                 <button
-                  onClick={() => setPageNumber(Math.max(1, pageNumber - 1))}
+                  onClick={() => changePage(Math.max(1, pageNumber - 1))}
                   disabled={pageNumber <= 1}
                   className="px-3 py-1 bg-gray-200 dark:bg-dark-100 rounded disabled:opacity-50"
                 >
@@ -85,7 +148,7 @@ export default function PDFViewer({ tabId }: PDFViewerProps) {
                   Page {pageNumber} of {numPages}
                 </span>
                 <button
-                  onClick={() => setPageNumber(Math.min(numPages, pageNumber + 1))}
+                  onClick={() => changePage(Math.min(numPages, pageNumber + 1))}
                   disabled={pageNumber >= numPages}
                   className="px-3 py-1 bg-gray-200 dark:bg-dark-100 rounded disabled:opacity-50"
                 >
@@ -113,7 +176,9 @@ export default function PDFViewer({ tabId }: PDFViewerProps) {
       {/* AI Analysis Sidebar */}
       {isSidebarOpen && (
         <PDFSidebar
-          pageText={pageText}
+          pageText={chapterText}
+          chapterText={chapterText}
+          bookText={bookText}
           pageNumber={pageNumber}
           totalPages={numPages}
           isFileLoaded={!!pdfFile}

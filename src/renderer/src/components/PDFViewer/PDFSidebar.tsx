@@ -5,6 +5,8 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 interface PDFSidebarProps {
   pageText: string
+  chapterText: string
+  bookText: string
   pageNumber: number
   totalPages: number
   isFileLoaded: boolean
@@ -13,6 +15,8 @@ interface PDFSidebarProps {
 
 export default function PDFSidebar({
   pageText,
+  chapterText,
+  bookText,
   pageNumber,
   totalPages,
   isFileLoaded,
@@ -20,25 +24,103 @@ export default function PDFSidebar({
 }: PDFSidebarProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [response, setResponse] = useState('')
+  const [customPrompt, setCustomPrompt] = useState('')
 
   const predefinedPrompts = [
     {
-      title: 'Summarize Page',
-      prompt: 'Please provide a concise summary of the following text:'
+      title: 'Summarize Content',
+      prompt: 'Please provide a comprehensive summary of the content:'
     },
     {
-      title: 'Key Points',
-      prompt: 'Extract the main key points from this text:'
+      title: 'Extract Key Points',
+      prompt: 'Extract and list the main key points from this content:'
     },
     {
       title: 'Explain Concepts',
-      prompt: 'Explain the main concepts discussed in this text in simple terms:'
+      prompt: 'Explain the main concepts discussed in this content in simple terms:'
     },
     {
       title: 'Generate Questions',
-      prompt: 'Generate 3-5 comprehension questions based on this text:'
+      prompt: 'Generate 3-5 comprehension questions based on this content:'
+    },
+    {
+      title: 'Analyze Structure',
+      prompt:
+        'Analyze and break down the structure of this content, identifying main sections and their relationships:'
     }
   ]
+
+  const determineContext = (
+    question: string
+  ): { context: string; scope: 'page' | 'chapter' | 'book' } => {
+    const questionLower = question.toLowerCase()
+
+    // Keywords that indicate scope
+    const pageKeywords = ['this page', 'current page', 'on page', 'in page']
+    const bookKeywords = ['whole book', 'entire book', 'full book', 'all chapters', 'the book']
+    const chapterKeywords = ['this chapter', 'current chapter', 'in chapter', 'the chapter']
+
+    if (pageKeywords.some((keyword) => questionLower.includes(keyword))) {
+      return { context: pageText, scope: 'page' }
+    }
+    if (bookKeywords.some((keyword) => questionLower.includes(keyword))) {
+      return { context: bookText, scope: 'book' }
+    }
+    if (chapterKeywords.some((keyword) => questionLower.includes(keyword))) {
+      return { context: chapterText, scope: 'chapter' }
+    }
+
+    // Default to the most relevant scope based on question type
+    if (questionLower.includes('compare') || questionLower.includes('across')) {
+      return { context: bookText, scope: 'book' }
+    }
+
+    // Default to chapter for most questions as it provides good context without being too broad
+    return { context: chapterText, scope: 'chapter' }
+  }
+
+  const handleCustomPrompt = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!customPrompt.trim() || isLoading) return
+
+    setIsLoading(true)
+    setResponse('')
+
+    try {
+      await window.api.setModel(currentModel)
+
+      const { context, scope } = determineContext(customPrompt)
+      const contextDescription = `You are analyzing ${
+        scope === 'page'
+          ? `page ${pageNumber} of ${totalPages}`
+          : scope === 'chapter'
+            ? `the chapter containing page ${pageNumber}`
+            : `the entire book (${totalPages} pages)`
+      }. Provide a response that's appropriate for this scope.`
+
+      const response = await window.api.chat({
+        chatId: null,
+        messages: [
+          {
+            role: 'user',
+            content: `${contextDescription}\n\nQuestion: ${customPrompt}\n\nText:\n${context}`,
+            type: 'text'
+          }
+        ],
+        useInternetSearch: false
+      })
+
+      if (response.success && response.data) {
+        setResponse(response.data.content)
+      }
+    } catch (error) {
+      console.error('Failed to analyze text:', error)
+      setResponse('Error analyzing the text. Please try again.')
+    } finally {
+      setIsLoading(false)
+      setCustomPrompt('')
+    }
+  }
 
   const handlePromptClick = async (promptPrefix: string) => {
     if (!pageText || isLoading) return
@@ -84,6 +166,25 @@ export default function PDFSidebar({
             <div className="text-gray-500">Please load a PDF file first</div>
           ) : (
             <>
+              <form onSubmit={handleCustomPrompt} className="space-y-2">
+                <textarea
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  placeholder="Ask any question about the current chapter or page..."
+                  className="w-full p-3 bg-white dark:bg-dark-400 rounded-lg shadow border border-gray-200 dark:border-dark-100 resize-none"
+                  rows={3}
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading || !customPrompt.trim()}
+                  className="w-full p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Ask Question
+                </button>
+              </form>
+
+              <div className="my-4 border-t border-gray-200 dark:border-dark-100" />
+
               <div className="grid grid-cols-1 gap-2">
                 {predefinedPrompts.map((prompt, index) => (
                   <button
