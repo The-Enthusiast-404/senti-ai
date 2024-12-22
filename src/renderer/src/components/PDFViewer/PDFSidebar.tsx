@@ -11,6 +11,8 @@ interface PDFSidebarProps {
   totalPages: number
   isFileLoaded: boolean
   currentModel: string
+  selectedText: string
+  onClearSelection: () => void
 }
 
 export default function PDFSidebar({
@@ -20,7 +22,9 @@ export default function PDFSidebar({
   pageNumber,
   totalPages,
   isFileLoaded,
-  currentModel
+  currentModel,
+  selectedText,
+  onClearSelection
 }: PDFSidebarProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [response, setResponse] = useState('')
@@ -154,6 +158,39 @@ export default function PDFSidebar({
     }
   }
 
+  const handleSelectedTextAnalysis = async () => {
+    if (!selectedText || isLoading) return
+
+    setIsLoading(true)
+    setResponse('')
+
+    try {
+      await window.api.setModel(currentModel)
+
+      const response = await window.api.chat({
+        chatId: null,
+        messages: [
+          {
+            role: 'user',
+            content: `Analyze this selected text from page ${pageNumber}:\n\n"${selectedText}"\n\nProvide insights about this specific excerpt.`,
+            type: 'text'
+          }
+        ],
+        useInternetSearch: false
+      })
+
+      if (response.success && response.data) {
+        setResponse(response.data.content)
+      }
+    } catch (error) {
+      console.error('Failed to analyze text:', error)
+      setResponse('Error analyzing the text. Please try again.')
+    } finally {
+      setIsLoading(false)
+      onClearSelection()
+    }
+  }
+
   return (
     <div className="w-96 border-l border-gray-200 dark:border-dark-100 flex flex-col h-full bg-gray-50 dark:bg-dark-50">
       <div className="p-4 border-b border-gray-200 dark:border-dark-100">
@@ -166,6 +203,28 @@ export default function PDFSidebar({
             <div className="text-gray-500">Please load a PDF file first</div>
           ) : (
             <>
+              {selectedText && (
+                <div className="space-y-2">
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <p className="text-sm text-gray-600 dark:text-gray-300">Selected text:</p>
+                    <p className="text-sm font-medium mt-1">{selectedText}</p>
+                  </div>
+                  <button
+                    onClick={handleSelectedTextAnalysis}
+                    className="w-full p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Analyze Selection
+                  </button>
+                  <button
+                    onClick={onClearSelection}
+                    className="w-full p-2 bg-gray-200 dark:bg-dark-300 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-dark-200"
+                  >
+                    Clear Selection
+                  </button>
+                  <div className="my-4 border-t border-gray-200 dark:border-dark-100" />
+                </div>
+              )}
+
               <form onSubmit={handleCustomPrompt} className="space-y-2">
                 <textarea
                   value={customPrompt}

@@ -20,6 +20,7 @@ export default function PDFViewer({ tabId }: PDFViewerProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [currentModel, setCurrentModel] = useState<string>('llama2')
   const [bookText, setBookText] = useState<string>('')
+  const [selectedText, setSelectedText] = useState<string>('')
 
   const isChapterStart = (text: string): boolean => {
     const chapterPatterns = [/^chapter\s+\d+/i, /^\d+\.\s+[A-Z]/, /^[IVX]+\.\s+[A-Z]/]
@@ -105,6 +106,13 @@ export default function PDFViewer({ tabId }: PDFViewerProps) {
     }
   }
 
+  const handleTextSelection = () => {
+    const selection = window.getSelection()
+    if (selection && selection.toString().trim()) {
+      setSelectedText(selection.toString().trim())
+    }
+  }
+
   return (
     <div className="flex h-full bg-white dark:bg-dark-400">
       {/* Main PDF Viewer */}
@@ -134,42 +142,44 @@ export default function PDFViewer({ tabId }: PDFViewerProps) {
         </div>
 
         <div className="flex-1 overflow-auto p-4">
-          {pdfFile ? (
-            <div className="flex flex-col items-center">
-              <div className="mb-4 flex items-center gap-4">
-                <button
-                  onClick={() => changePage(Math.max(1, pageNumber - 1))}
-                  disabled={pageNumber <= 1}
-                  className="px-3 py-1 bg-gray-200 dark:bg-dark-100 rounded disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                <span className="text-gray-900 dark:text-gray-100">
-                  Page {pageNumber} of {numPages}
-                </span>
-                <button
-                  onClick={() => changePage(Math.min(numPages, pageNumber + 1))}
-                  disabled={pageNumber >= numPages}
-                  className="px-3 py-1 bg-gray-200 dark:bg-dark-100 rounded disabled:opacity-50"
-                >
-                  Next
-                </button>
+          <div className="flex justify-center">
+            {pdfFile ? (
+              <div onMouseUp={handleTextSelection} className="pdf-container">
+                <Document file={pdfFile} onLoadSuccess={onDocumentLoadSuccess}>
+                  <Page
+                    pageNumber={pageNumber}
+                    renderTextLayer={true}
+                    renderAnnotationLayer={true}
+                    className="shadow-lg"
+                    onLoadSuccess={onPageLoadSuccess}
+                  />
+                </Document>
+                <div className="flex justify-center items-center space-x-4 mt-4">
+                  <button
+                    onClick={() => changePage(Math.max(1, pageNumber - 1))}
+                    disabled={pageNumber <= 1}
+                    className="px-4 py-2 bg-gray-200 dark:bg-dark-300 rounded-lg disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    Page {pageNumber} of {numPages}
+                  </span>
+                  <button
+                    onClick={() => changePage(Math.min(numPages, pageNumber + 1))}
+                    disabled={pageNumber >= numPages}
+                    className="px-4 py-2 bg-gray-200 dark:bg-dark-300 rounded-lg disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
-              <Document file={pdfFile} onLoadSuccess={onDocumentLoadSuccess}>
-                <Page
-                  pageNumber={pageNumber}
-                  renderTextLayer={true}
-                  renderAnnotationLayer={true}
-                  className="shadow-lg"
-                  onLoadSuccess={onPageLoadSuccess}
-                />
-              </Document>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-400">
-              Please select a PDF file to view
-            </div>
-          )}
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400">
+                Please select a PDF file to view
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -183,6 +193,8 @@ export default function PDFViewer({ tabId }: PDFViewerProps) {
           totalPages={numPages}
           isFileLoaded={!!pdfFile}
           currentModel={currentModel}
+          selectedText={selectedText}
+          onClearSelection={() => setSelectedText('')}
         />
       )}
     </div>
