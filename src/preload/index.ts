@@ -28,7 +28,12 @@ const api = {
     process: (filePath: string) => ipcRenderer.invoke('file:process', filePath),
     delete: (documentId: string) => ipcRenderer.invoke('file:delete', documentId)
   },
-  platform: process.platform
+  platform: process.platform,
+  window: {
+    close: () => ipcRenderer.send('window:close'),
+    minimize: () => ipcRenderer.send('window:minimize'),
+    maximize: () => ipcRenderer.send('window:maximize')
+  }
 }
 
 contextBridge.exposeInMainWorld('api', api)

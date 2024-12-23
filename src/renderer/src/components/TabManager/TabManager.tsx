@@ -3,6 +3,7 @@ import { TabType, useTabStore } from '../../stores/tabStore'
 import ChatInterface from '../Chat/ChatInterface'
 import ThemeToggle from '../Theme/ThemeToggle'
 import PDFViewer from '../PDFViewer/PDFViewer'
+import WindowControls from '../WindowControls/WindowControls'
 
 export default function TabManager() {
   const { tabs, activeTabId, createTab, closeTab, setActiveTab } = useTabStore()
@@ -70,17 +71,20 @@ export default function TabManager() {
   return (
     <div className="flex flex-col h-screen bg-white dark:bg-dark-400">
       <div
-        className={`app-drag-region flex items-center bg-gray-100 dark:bg-dark-300 ${isMac ? 'pl-20' : 'pl-2'} pr-2 py-1`}
+        className={`app-drag-region flex items-center bg-gray-100 dark:bg-dark-300 ${isMac ? 'pl-20' : ''}`}
       >
-        <div className="flex-1 flex items-center space-x-1 overflow-x-auto">
+        <WindowControls />
+        <div className="flex-1 flex items-center space-x-0.5 overflow-x-auto px-2">
           {tabs.map((tab) => (
             <div
               key={tab.id}
-              className={`group relative flex items-center min-w-[140px] max-w-[240px] h-8 px-3 rounded-t-lg cursor-pointer transition-colors ${
-                activeTabId === tab.id
-                  ? 'bg-white dark:bg-dark-400 text-gray-900 dark:text-gray-100'
-                  : 'text-gray-600 hover:bg-gray-200/50 dark:text-gray-400 dark:hover:bg-dark-200/50'
-              }`}
+              className={`group relative flex items-center min-w-[140px] max-w-[240px] h-9 px-4 
+                rounded-t-lg cursor-pointer transition-all duration-200 ease-in-out
+                ${
+                  activeTabId === tab.id
+                    ? 'bg-white dark:bg-dark-400 text-gray-900 dark:text-gray-100 shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-200/50 dark:text-gray-400 dark:hover:bg-dark-200/50'
+                }`}
               onClick={() => setActiveTab(tab.id)}
             >
               <div className="flex items-center space-x-2 w-full overflow-hidden no-drag">
