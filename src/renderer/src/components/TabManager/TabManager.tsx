@@ -6,6 +6,7 @@ import PDFViewer from '../PDFViewer/PDFViewer'
 
 export default function TabManager() {
   const { tabs, activeTabId, createTab, closeTab, setActiveTab } = useTabStore()
+  const isMac = window.api.platform === 'darwin'
 
   const getInitialTitle = (type: TabType): string => {
     switch (type) {
@@ -68,7 +69,9 @@ export default function TabManager() {
 
   return (
     <div className="flex flex-col h-screen bg-white dark:bg-dark-400">
-      <div className="app-drag-region flex items-center bg-gray-100 dark:bg-dark-300 px-2 py-1">
+      <div
+        className={`app-drag-region flex items-center bg-gray-100 dark:bg-dark-300 ${isMac ? 'pl-20' : 'pl-2'} pr-2 py-1`}
+      >
         <div className="flex-1 flex items-center space-x-1 overflow-x-auto">
           {tabs.map((tab) => (
             <div
