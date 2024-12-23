@@ -1,8 +1,6 @@
 import { useEffect } from 'react'
 import { TabType, useTabStore } from '../../stores/tabStore'
 import ChatInterface from '../Chat/ChatInterface'
-import CodeGenerator from '../CodeGeneration/CodeGenerator'
-import StockViewer from '../Stocks/StockViewer'
 import ThemeToggle from '../Theme/ThemeToggle'
 import PDFViewer from '../PDFViewer/PDFViewer'
 
@@ -13,10 +11,6 @@ export default function TabManager() {
     switch (type) {
       case 'chat':
         return 'New Chat'
-      case 'code':
-        return 'Code Generator'
-      case 'stock':
-        return 'Stock Analysis'
       case 'pdf':
         return 'PDF Viewer'
       case 'settings':
@@ -45,28 +39,6 @@ export default function TabManager() {
             />
           </svg>
         )
-      case 'code':
-        return (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-            />
-          </svg>
-        )
-      case 'stock':
-        return (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M16 8v8m-4-5v5M8 8v8M4 12h16"
-            />
-          </svg>
-        )
       case 'pdf':
         return (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -87,10 +59,6 @@ export default function TabManager() {
     switch (tab.type) {
       case 'chat':
         return <ChatInterface key={tab.id} tabId={tab.id} />
-      case 'code':
-        return <CodeGenerator key={tab.id} />
-      case 'stock':
-        return <StockViewer key={tab.id} />
       case 'pdf':
         return <PDFViewer key={tab.id} tabId={tab.id} />
       default:
@@ -128,7 +96,7 @@ export default function TabManager() {
         </div>
         <ThemeToggle />
         <div className="flex items-center space-x-2 px-2">
-          {['chat', 'code', 'stock', 'pdf'].map((type) => (
+          {['chat', 'pdf'].map((type) => (
             <button
               key={type}
               onClick={() => createTab(type as TabType, getInitialTitle(type as TabType))}

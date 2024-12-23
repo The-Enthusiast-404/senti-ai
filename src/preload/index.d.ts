@@ -74,20 +74,8 @@ declare global {
           error?: string
         }>
       }
-      generateCode: (prompt: string) => Promise<{
-        success: boolean
-        data?: {
-          code: string
-          language: string
-          componentName: string
-        }
-        error?: string
-      }>
-      getStockData: (ticker: string) => Promise<{
-        success: boolean
-        data?: any
-        error?: string
-      }>
+      
+      
       file: {
         getAll: () => Promise<{
           success: boolean

@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { useChatStore } from './chatStore'
 import PDFViewer from '../PDFViewer/PDFViewer'
 
-export type TabType = 'chat' | 'code' | 'stock' | 'settings' | 'pdf'
+export type TabType = 'chat' | 'settings' | 'pdf'
 
 interface TabState {
   messages: Message[]
@@ -120,10 +120,6 @@ function getInitialTitle(type: TabType): string {
   switch (type) {
     case 'chat':
       return 'New Chat'
-    case 'code':
-      return 'Code Generator'
-    case 'stock':
-      return 'Stock Analysis'
     case 'pdf':
       return 'PDF Viewer'
     case 'settings':
