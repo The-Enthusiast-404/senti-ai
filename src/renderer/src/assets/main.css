@@ -166,3 +166,36 @@ code {
     display: none;
   }
 }
+
+.text-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  line-height: 1;
+  opacity: 1;
+  transform-origin: 0 0;
+}
+
+.text-layer > span {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  line-height: 1;
+}
+
+.text-layer ::selection {
+  background: rgba(0, 0, 255, 0.2);
+}
+
+/* Add styles for the highlight overlay */
+.highlight-overlay {
+  position: absolute;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  border-radius: 2px;
+}
