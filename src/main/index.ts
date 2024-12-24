@@ -3,6 +3,9 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import fs from 'fs'
+import { DocumentProcessor } from './services/DocumentProcessor'
+
+const documentProcessor = new DocumentProcessor()
 
 // Add this function to create PDF windows
 function createPDFWindow(pdfPath: string): void {
@@ -20,6 +23,112 @@ function createPDFWindow(pdfPath: string): void {
 // Add this IPC handler
 ipcMain.handle('open-pdf', async (_, pdfPath) => {
   createPDFWindow(pdfPath)
+})
+
+// Add this new IPC handler to get available models
+ipcMain.handle('get-ollama-models', async () => {
+  try {
+    const { default: fetch } = await import('node-fetch')
+    const response = await fetch('http://localhost:11434/api/tags')
+    if (!response.ok) {
+      throw new Error(`Ollama API error: ${response.statusText}`)
+    }
+    const data = await response.json()
+    // Extract just the model names from the models array
+    return data.models.map((model: { name: string }) => model.name)
+  } catch (error) {
+    console.error('Error fetching Ollama models:', error)
+    return []
+  }
+})
+
+// Update the existing chat handler to accept model parameter
+ipcMain.handle(
+  'chat-with-ollama',
+  async (
+    _,
+    data: {
+      message: string
+      context: string
+      pageNumber: number
+      model: string
+      isChapterAction: boolean
+      isBookAction: boolean
+    }
+  ) => {
+    try {
+      const { default: fetch } = await import('node-fetch')
+      await documentProcessor.processPage(data.pageNumber, data.context)
+
+      const relevantContext = await documentProcessor.getRelevantContext(
+        data.pageNumber,
+        data.message,
+        data.isBookAction
+      )
+
+      const prompt = data.isBookAction
+        ? `You are a helpful AI assistant analyzing an entire book. Here is the relevant context from the book:\n\n${relevantContext}\n\nUser question: ${data.message}`
+        : data.isChapterAction
+          ? `You are a helpful AI assistant analyzing a book chapter. Here is the relevant context from the chapter:\n\n${relevantContext}\n\nUser question: ${data.message}`
+          : `You are a helpful AI assistant analyzing a PDF document. You are currently looking at page ${data.pageNumber}. Here is the relevant context:\n\n${relevantContext}\n\nUser question: ${data.message}`
+
+      const response = await fetch('http://localhost:11434/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: data.model,
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          stream: false
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Ollama API error: ${response.statusText}`)
+      }
+
+      const responseData = await response.json()
+      return responseData.message.content
+    } catch (error) {
+      console.error('Error calling Ollama API:', error)
+      throw error
+    }
+  }
+)
+
+// Add a handler to clear document processor when closing PDF
+ipcMain.handle('clear-document-context', async () => {
+  documentProcessor.clear()
+})
+
+// Add new IPC handlers for chapter management
+ipcMain.handle(
+  'process-chapter',
+  async (_, data: { title: string; startPage: number; endPage: number }) => {
+    try {
+      await documentProcessor.processChapter(data.title, data.startPage, data.endPage)
+      return true
+    } catch (error) {
+      console.error('Error processing chapter:', error)
+      throw error
+    }
+  }
+)
+
+ipcMain.handle('get-chapter-info', async (_, pageNumber: number) => {
+  try {
+    const chapterInfo = documentProcessor.getChapterForPage(pageNumber)
+    return chapterInfo
+  } catch (error) {
+    console.error('Error getting chapter info:', error)
+    throw error
+  }
 })
 
 function createWindow(): void {

@@ -5,10 +5,12 @@ import {
   ChevronRightIcon,
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
-  ListBulletIcon
+  ListBulletIcon,
+  ChatBubbleLeftIcon
 } from '@heroicons/react/24/outline'
 import Sidebar from './Sidebar'
 import * as pdfjsLib from 'pdfjs-dist'
+import AISidebar from './AISidebar'
 
 // Import worker from CDN
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
@@ -44,6 +46,13 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
   const [outline, setOutline] = useState<pdfjsLib.PDFOutline[]>([])
   const [annotations, setAnnotations] = useState<Annotation[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
+  const [aiSidebarOpen, setAiSidebarOpen] = useState(false)
+  const [currentPageText, setCurrentPageText] = useState<string>('')
+  const [currentChapter, setCurrentChapter] = useState<{
+    title: string
+    startPage: number
+    endPage: number
+  } | null>(null)
 
   const handlePageChange = async (newPage: number) => {
     if (!pdfDocument || newPage < 1 || newPage > totalPages) return
@@ -96,6 +105,14 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
     loadPDF()
   }, [pdfPath])
 
+  useEffect(() => {
+    const updateChapterInfo = async () => {
+      const chapterInfo = await window.electron.ipcRenderer.invoke('get-chapter-info', currentPage)
+      setCurrentChapter(chapterInfo)
+    }
+    updateChapterInfo()
+  }, [currentPage])
+
   const renderPage = async (pdf: pdfjsLib.PDFDocumentProxy, pageNumber: number) => {
     try {
       const page = await pdf.getPage(pageNumber)
@@ -130,8 +147,12 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
         viewport: scaledViewport
       }).promise
 
-      // Get text content and render text layer
+      // Get text content and store it
       const textContent = await page.getTextContent()
+      const pageText = textContent.items.map((item: any) => item.str).join(' ')
+      setCurrentPageText(pageText)
+
+      // Get text content and render text layer
       pdfjsLib.renderTextLayer({
         textContent,
         container: textLayerDiv,
@@ -179,11 +200,44 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
     setAnnotations((prev) => [...prev, annotation])
   }
 
+  const handleClose = async () => {
+    await window.electron.ipcRenderer.invoke('clear-document-context')
+    onClose()
+  }
+
+  useEffect(() => {
+    const processOutlineChapters = async () => {
+      for (const item of outline) {
+        if (item.pageNumber && item.title) {
+          // Find the next chapter to determine end page
+          const currentIndex = outline.indexOf(item)
+          const nextChapter = outline[currentIndex + 1]
+          const endPage = nextChapter?.pageNumber
+            ? nextChapter.pageNumber - 1
+            : item.pageNumber + 10 // Default chapter length if no next chapter
+
+          await window.electron.ipcRenderer.invoke('process-chapter', {
+            title: item.title,
+            startPage: item.pageNumber,
+            endPage: endPage
+          })
+        }
+      }
+    }
+
+    if (outline.length > 0) {
+      processOutlineChapters()
+    }
+  }, [outline])
+
   return (
     <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
       <div className="bg-gray-800 p-4 flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
+          <button
+            onClick={handleClose}
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+          >
             <XMarkIcon className="w-6 h-6" />
           </button>
 
@@ -228,6 +282,12 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
 
         <div className="flex items-center gap-4">
           <button
+            onClick={() => setAiSidebarOpen(!aiSidebarOpen)}
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <ChatBubbleLeftIcon className="w-5 h-5" />
+          </button>
+          <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
           >
@@ -271,6 +331,13 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
           </div>
         </div>
 
+        {aiSidebarOpen && (
+          <AISidebar
+            currentPage={currentPage}
+            pageContent={currentPageText}
+            currentChapter={currentChapter}
+          />
+        )}
         {sidebarOpen && (
           <Sidebar
             outline={outline}
