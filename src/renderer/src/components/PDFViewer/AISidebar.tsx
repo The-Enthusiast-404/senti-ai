@@ -9,7 +9,8 @@ import {
   BookOpenIcon,
   DocumentDuplicateIcon,
   ClipboardDocumentListIcon,
-  ArrowsPointingOutIcon
+  ArrowsPointingOutIcon,
+  PaperAirplaneIcon
 } from '@heroicons/react/24/outline'
 
 interface Message {
@@ -147,6 +148,7 @@ export default function AISidebar({ currentPage, pageContent, currentChapter }: 
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [activeTab, setActiveTab] = useState<'page' | 'chapter' | 'book'>('page')
+  const [customPrompt, setCustomPrompt] = useState('')
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -199,6 +201,42 @@ export default function AISidebar({ currentPage, pageContent, currentChapter }: 
           content: response
         }
       ])
+    } catch (error) {
+      console.error('Error chatting with Ollama:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleCustomPrompt = async () => {
+    if (isLoading || !selectedModel || !customPrompt.trim()) return
+
+    const userMessage = {
+      role: 'user' as const,
+      content: customPrompt
+    }
+
+    setMessages((prev) => [...prev, userMessage])
+    setIsLoading(true)
+
+    try {
+      const response = await window.electron.ipcRenderer.invoke('chat-with-ollama', {
+        message: customPrompt,
+        context: pageContent || '',
+        pageNumber: currentPage,
+        model: selectedModel,
+        isChapterAction: activeTab === 'chapter',
+        isBookAction: activeTab === 'book'
+      })
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: response
+        }
+      ])
+      setCustomPrompt('')
     } catch (error) {
       console.error('Error chatting with Ollama:', error)
     } finally {
@@ -339,6 +377,32 @@ export default function AISidebar({ currentPage, pageContent, currentChapter }: 
           </div>
         ))}
         <div ref={messagesEndRef} />
+      </div>
+
+      <div className="p-4 border-t border-gray-700">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            handleCustomPrompt()
+          }}
+          className="flex gap-2"
+        >
+          <input
+            type="text"
+            value={customPrompt}
+            onChange={(e) => setCustomPrompt(e.target.value)}
+            placeholder="Ask anything about the content..."
+            className="flex-1 bg-gray-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={isLoading || !selectedModel}
+          />
+          <button
+            type="submit"
+            disabled={isLoading || !selectedModel || !customPrompt.trim()}
+            className="p-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:hover:bg-blue-500 rounded-lg transition-colors"
+          >
+            <PaperAirplaneIcon className="w-5 h-5" />
+          </button>
+        </form>
       </div>
     </div>
   )
