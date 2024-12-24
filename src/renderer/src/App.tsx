@@ -1,34 +1,32 @@
-import Versions from './components/Versions'
-import electronLogo from './assets/electron.svg'
+import MainLayout from './components/Layout/MainLayout'
+import BookGrid from './components/Library/BookGrid'
 
 function App(): JSX.Element {
-  const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
+  const mockBooks = [
+    {
+      id: '1',
+      title: 'Sample PDF Book',
+      lastOpened: new Date('2024-03-20')
+    }
+  ]
+
+  const handleBookClick = (id: string): void => {
+    console.log('Open book:', id)
+  }
+
+  const handleAddBook = (): void => {
+    console.log('Add new book')
+  }
 
   return (
-    <>
-      <img alt="logo" className="logo" src={electronLogo} />
-      <div className="creator">Powered by electron-vite</div>
-      <div className="text">
-        Build an Electron app with <span className="react">React</span>
-        &nbsp;and <span className="ts">TypeScript</span>
+    <MainLayout>
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-2">Your Library</h2>
+        <p className="text-gray-400">Select a book to read or add a new one</p>
       </div>
-      <p className="tip">
-        Please try pressing <code>F12</code> to open the devTool
-      </p>
-      <div className="actions">
-        <div className="action">
-          <a href="https://electron-vite.org/" target="_blank" rel="noreferrer">
-            Documentation
-          </a>
-        </div>
-        <div className="action">
-          <a target="_blank" rel="noreferrer" onClick={ipcHandle}>
-            Send IPC
-          </a>
-        </div>
-      </div>
-      <Versions></Versions>
-    </>
+
+      <BookGrid books={mockBooks} onBookClick={handleBookClick} onAddBook={handleAddBook} />
+    </MainLayout>
   )
 }
 
