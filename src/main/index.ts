@@ -3,6 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import fs from 'fs'
+import { spawn } from 'child_process'
 
 // Add this function to create PDF windows
 function createPDFWindow(pdfPath: string): void {
@@ -21,6 +22,61 @@ function createPDFWindow(pdfPath: string): void {
 ipcMain.handle('open-pdf', async (_, pdfPath) => {
   createPDFWindow(pdfPath)
 })
+
+// Add this new IPC handler to get available models
+ipcMain.handle('get-ollama-models', async () => {
+  try {
+    const fetch = (await import('node-fetch')).default
+    const response = await fetch('http://localhost:11434/api/tags')
+    if (!response.ok) {
+      throw new Error(`Ollama API error: ${response.statusText}`)
+    }
+    const data = await response.json()
+    // Extract just the model names from the models array
+    return data.models.map((model: { name: string }) => model.name)
+  } catch (error) {
+    console.error('Error fetching Ollama models:', error)
+    return []
+  }
+})
+
+// Update the existing chat handler to accept model parameter
+ipcMain.handle(
+  'chat-with-ollama',
+  async (_, data: { message: string; context: string; pageNumber: number; model: string }) => {
+    try {
+      const fetch = (await import('node-fetch')).default
+      const prompt = `You are a helpful AI assistant analyzing a PDF document. You are currently looking at page ${data.pageNumber}. Here is the context from the current page:\n\n${data.context}\n\nUser question: ${data.message}`
+
+      const response = await fetch('http://localhost:11434/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: data.model,
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          stream: false
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Ollama API error: ${response.statusText}`)
+      }
+
+      const responseData = await response.json()
+      return responseData.message.content
+    } catch (error) {
+      console.error('Error calling Ollama API:', error)
+      throw error
+    }
+  }
+)
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({

@@ -5,10 +5,12 @@ import {
   ChevronRightIcon,
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
-  ListBulletIcon
+  ListBulletIcon,
+  ChatBubbleLeftIcon
 } from '@heroicons/react/24/outline'
 import Sidebar from './Sidebar'
 import * as pdfjsLib from 'pdfjs-dist'
+import AISidebar from './AISidebar'
 
 // Import worker from CDN
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
@@ -44,6 +46,8 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
   const [outline, setOutline] = useState<pdfjsLib.PDFOutline[]>([])
   const [annotations, setAnnotations] = useState<Annotation[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
+  const [aiSidebarOpen, setAiSidebarOpen] = useState(false)
+  const [currentPageText, setCurrentPageText] = useState<string>('')
 
   const handlePageChange = async (newPage: number) => {
     if (!pdfDocument || newPage < 1 || newPage > totalPages) return
@@ -130,8 +134,12 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
         viewport: scaledViewport
       }).promise
 
-      // Get text content and render text layer
+      // Get text content and store it
       const textContent = await page.getTextContent()
+      const pageText = textContent.items.map((item: any) => item.str).join(' ')
+      setCurrentPageText(pageText)
+
+      // Get text content and render text layer
       pdfjsLib.renderTextLayer({
         textContent,
         container: textLayerDiv,
@@ -228,6 +236,12 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
 
         <div className="flex items-center gap-4">
           <button
+            onClick={() => setAiSidebarOpen(!aiSidebarOpen)}
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <ChatBubbleLeftIcon className="w-5 h-5" />
+          </button>
+          <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
           >
@@ -271,6 +285,7 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
           </div>
         </div>
 
+        {aiSidebarOpen && <AISidebar currentPage={currentPage} pageContent={currentPageText} />}
         {sidebarOpen && (
           <Sidebar
             outline={outline}
