@@ -1,6 +1,13 @@
 # PagePal
 
-PagePal is a electron app that allows you to read pdfs with a AI companion.
+PagePal is a electron app that allows you to read pdfs with a AI companion. It is built with the following technologies:
+
+- React
+- Electron
+- TailwindCSS
+- Typescript
+- Vite
+- Ollama API
 
 # PagePal Features
 
