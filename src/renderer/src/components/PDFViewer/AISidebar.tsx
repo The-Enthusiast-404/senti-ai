@@ -5,7 +5,10 @@ import {
   AcademicCapIcon,
   QuestionMarkCircleIcon,
   LightBulbIcon,
-  PencilIcon
+  PencilIcon,
+  BookOpenIcon,
+  DocumentDuplicateIcon,
+  ClipboardDocumentListIcon
 } from '@heroicons/react/24/outline'
 
 interface Message {
@@ -16,6 +19,11 @@ interface Message {
 interface AISidebarProps {
   currentPage: number
   pageContent?: string
+  currentChapter: {
+    title: string
+    startPage: number
+    endPage: number
+  } | null
 }
 
 interface ActionButton {
@@ -58,13 +66,49 @@ const actionButtons: ActionButton[] = [
   }
 ]
 
-export default function AISidebar({ currentPage, pageContent }: AISidebarProps) {
+const chapterActionButtons: ActionButton[] = [
+  {
+    id: 'chapter-summary',
+    label: 'Chapter Summary',
+    prompt: 'Please provide a comprehensive summary of the current chapter.',
+    icon: <BookOpenIcon className="w-5 h-5" />
+  },
+  {
+    id: 'chapter-quiz',
+    label: 'Chapter Quiz',
+    prompt: 'Generate a set of 5 quiz questions covering the key concepts from this chapter.',
+    icon: <AcademicCapIcon className="w-5 h-5" />
+  },
+  {
+    id: 'chapter-concepts',
+    label: 'Chapter Concepts',
+    prompt: 'List and explain all major concepts introduced in this chapter.',
+    icon: <LightBulbIcon className="w-5 h-5" />
+  },
+  {
+    id: 'chapter-flashcards',
+    label: 'Generate Flashcards',
+    prompt:
+      'Create a set of flashcards covering the important terms and concepts from this chapter.',
+    icon: <DocumentDuplicateIcon className="w-5 h-5" />
+  },
+  {
+    id: 'chapter-study-guide',
+    label: 'Study Guide',
+    prompt:
+      'Create a detailed study guide for this chapter, including main topics, key points, and important relationships.',
+    icon: <ClipboardDocumentListIcon className="w-5 h-5" />
+  }
+]
+
+export default function AISidebar({ currentPage, pageContent, currentChapter }: AISidebarProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [models, setModels] = useState<string[]>([])
   const [selectedModel, setSelectedModel] = useState<string>('')
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [activeTab, setActiveTab] = useState<'page' | 'chapter'>('page')
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -105,7 +149,8 @@ export default function AISidebar({ currentPage, pageContent }: AISidebarProps) 
         message: action.prompt,
         context: pageContent || '',
         pageNumber: currentPage,
-        model: selectedModel
+        model: selectedModel,
+        isChapterAction: activeTab === 'chapter'
       })
 
       setMessages((prev) => [
@@ -121,6 +166,10 @@ export default function AISidebar({ currentPage, pageContent }: AISidebarProps) 
       setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    console.log('Current Chapter:', currentChapter)
+  }, [currentChapter])
 
   return (
     <div className="w-96 bg-gray-800 border-l border-gray-700 flex flex-col">
@@ -153,9 +202,30 @@ export default function AISidebar({ currentPage, pageContent }: AISidebarProps) 
         </div>
       </div>
 
-      <div className="p-4 border-b border-gray-700">
-        <div className="grid grid-cols-1 gap-2">
-          {actionButtons.map((action) => (
+      <div className="flex border-b border-gray-700">
+        <button
+          onClick={() => setActiveTab('page')}
+          className={`flex-1 p-2 text-sm font-medium ${
+            activeTab === 'page' ? 'border-b-2 border-blue-500' : ''
+          } hover:bg-gray-700/50 transition-colors`}
+        >
+          Page Actions
+        </button>
+        <button
+          onClick={() => setActiveTab('chapter')}
+          className={`flex-1 p-2 text-sm font-medium ${
+            activeTab === 'chapter' ? 'border-b-2 border-blue-500' : ''
+          } ${!currentChapter ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700/50'} transition-colors`}
+          disabled={!currentChapter}
+          title={!currentChapter ? 'No chapter detected for current page' : ''}
+        >
+          Chapter Actions {!currentChapter && '(No Chapter)'}
+        </button>
+      </div>
+
+      <div className="p-4 space-y-2">
+        {activeTab === 'page' ? (
+          actionButtons.map((action) => (
             <button
               key={action.id}
               onClick={() => handleActionClick(action)}
@@ -166,27 +236,48 @@ export default function AISidebar({ currentPage, pageContent }: AISidebarProps) 
               {action.icon}
               <span className="text-sm">{action.label}</span>
             </button>
-          ))}
-        </div>
+          ))
+        ) : (
+          <>
+            {currentChapter && (
+              <div className="mb-4 p-2 bg-gray-700 rounded-lg">
+                <h3 className="text-sm font-medium">Current Chapter:</h3>
+                <p className="text-sm opacity-80">{currentChapter.title}</p>
+                <p className="text-xs opacity-60">
+                  Pages {currentChapter.startPage} - {currentChapter.endPage}
+                </p>
+              </div>
+            )}
+            {chapterActionButtons.map((action) => (
+              <button
+                key={action.id}
+                onClick={() => handleActionClick(action)}
+                disabled={isLoading || !selectedModel || !currentChapter}
+                className="flex items-center gap-2 w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 
+                         disabled:opacity-50 disabled:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                {action.icon}
+                <span className="text-sm">{action.label}</span>
+              </button>
+            ))}
+          </>
+        )}
       </div>
 
-      <div className="flex-1 overflow-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message, index) => (
           <div
             key={index}
-            className={`${message.role === 'user' ? 'bg-gray-700' : 'bg-gray-600'} p-3 rounded-lg`}
+            className={`p-3 rounded-lg ${
+              message.role === 'user' ? 'bg-blue-500/20' : 'bg-gray-700/50'
+            }`}
           >
-            <div className="text-sm font-medium mb-1">
-              {message.role === 'user' ? 'You' : 'AI Assistant'}
+            <div className="text-xs font-medium mb-1">
+              {message.role === 'user' ? 'You' : 'Assistant'}
             </div>
-            <div className="text-sm">{message.content}</div>
+            <div className="text-sm whitespace-pre-wrap">{message.content}</div>
           </div>
         ))}
-        {isLoading && (
-          <div className="flex items-center justify-center py-4">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-          </div>
-        )}
         <div ref={messagesEndRef} />
       </div>
     </div>

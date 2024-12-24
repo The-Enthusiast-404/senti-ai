@@ -16,6 +16,19 @@ declare global {
             model: string
           }
         ): Promise<string>
+        invoke(
+          channel: 'process-chapter',
+          data: { title: string; startPage: number; endPage: number }
+        ): Promise<boolean>
+        invoke(
+          channel: 'get-chapter-info',
+          pageNumber: number
+        ): Promise<{
+          title: string
+          startPage: number
+          endPage: number
+          content: string
+        } | null>
       }
     }
     api: unknown

@@ -48,6 +48,11 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
   const containerRef = useRef<HTMLDivElement>(null)
   const [aiSidebarOpen, setAiSidebarOpen] = useState(false)
   const [currentPageText, setCurrentPageText] = useState<string>('')
+  const [currentChapter, setCurrentChapter] = useState<{
+    title: string
+    startPage: number
+    endPage: number
+  } | null>(null)
 
   const handlePageChange = async (newPage: number) => {
     if (!pdfDocument || newPage < 1 || newPage > totalPages) return
@@ -99,6 +104,14 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
 
     loadPDF()
   }, [pdfPath])
+
+  useEffect(() => {
+    const updateChapterInfo = async () => {
+      const chapterInfo = await window.electron.ipcRenderer.invoke('get-chapter-info', currentPage)
+      setCurrentChapter(chapterInfo)
+    }
+    updateChapterInfo()
+  }, [currentPage])
 
   const renderPage = async (pdf: pdfjsLib.PDFDocumentProxy, pageNumber: number) => {
     try {
@@ -191,6 +204,31 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
     await window.electron.ipcRenderer.invoke('clear-document-context')
     onClose()
   }
+
+  useEffect(() => {
+    const processOutlineChapters = async () => {
+      for (const item of outline) {
+        if (item.pageNumber && item.title) {
+          // Find the next chapter to determine end page
+          const currentIndex = outline.indexOf(item)
+          const nextChapter = outline[currentIndex + 1]
+          const endPage = nextChapter?.pageNumber
+            ? nextChapter.pageNumber - 1
+            : item.pageNumber + 10 // Default chapter length if no next chapter
+
+          await window.electron.ipcRenderer.invoke('process-chapter', {
+            title: item.title,
+            startPage: item.pageNumber,
+            endPage: endPage
+          })
+        }
+      }
+    }
+
+    if (outline.length > 0) {
+      processOutlineChapters()
+    }
+  }, [outline])
 
   return (
     <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
@@ -293,7 +331,13 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
           </div>
         </div>
 
-        {aiSidebarOpen && <AISidebar currentPage={currentPage} pageContent={currentPageText} />}
+        {aiSidebarOpen && (
+          <AISidebar
+            currentPage={currentPage}
+            pageContent={currentPageText}
+            currentChapter={currentChapter}
+          />
+        )}
         {sidebarOpen && (
           <Sidebar
             outline={outline}

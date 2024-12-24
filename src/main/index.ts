@@ -45,7 +45,16 @@ ipcMain.handle('get-ollama-models', async () => {
 // Update the existing chat handler to accept model parameter
 ipcMain.handle(
   'chat-with-ollama',
-  async (_, data: { message: string; context: string; pageNumber: number; model: string }) => {
+  async (
+    _,
+    data: {
+      message: string
+      context: string
+      pageNumber: number
+      model: string
+      isChapterAction: boolean
+    }
+  ) => {
     try {
       // Dynamic import of node-fetch
       const { default: fetch } = await import('node-fetch')
@@ -59,7 +68,9 @@ ipcMain.handle(
         data.message
       )
 
-      const prompt = `You are a helpful AI assistant analyzing a PDF document. You are currently looking at page ${data.pageNumber}. Here is the relevant context from the document:\n\n${relevantContext}\n\nUser question: ${data.message}`
+      const prompt = data.isChapterAction
+        ? `You are a helpful AI assistant analyzing a book chapter. You are currently looking at chapter content. Here is the relevant context from the chapter:\n\n${relevantContext}\n\nUser question: ${data.message}`
+        : `You are a helpful AI assistant analyzing a PDF document. You are currently looking at page ${data.pageNumber}. Here is the relevant context from the document:\n\n${relevantContext}\n\nUser question: ${data.message}`
 
       const response = await fetch('http://localhost:11434/api/chat', {
         method: 'POST',
@@ -94,6 +105,30 @@ ipcMain.handle(
 // Add a handler to clear document processor when closing PDF
 ipcMain.handle('clear-document-context', async () => {
   documentProcessor.clear()
+})
+
+// Add new IPC handlers for chapter management
+ipcMain.handle(
+  'process-chapter',
+  async (_, data: { title: string; startPage: number; endPage: number }) => {
+    try {
+      await documentProcessor.processChapter(data.title, data.startPage, data.endPage)
+      return true
+    } catch (error) {
+      console.error('Error processing chapter:', error)
+      throw error
+    }
+  }
+)
+
+ipcMain.handle('get-chapter-info', async (_, pageNumber: number) => {
+  try {
+    const chapterInfo = documentProcessor.getChapterForPage(pageNumber)
+    return chapterInfo
+  } catch (error) {
+    console.error('Error getting chapter info:', error)
+    throw error
+  }
 })
 
 function createWindow(): void {
