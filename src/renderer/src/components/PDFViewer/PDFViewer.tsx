@@ -101,24 +101,47 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
   const renderPage = async (pdf: pdfjsLib.PDFDocumentProxy, pageNumber: number) => {
     try {
       const page = await pdf.getPage(pageNumber)
-      const canvas = document.createElement('canvas')
-      const context = canvas.getContext('2d')
-
-      // Calculate scale based on container width
       const containerWidth = containerRef.current?.clientWidth ?? 800
       const viewport = page.getViewport({ scale: 1.0 })
       const scaleFactor = (containerWidth * 0.9) / viewport.width
       const scaledViewport = page.getViewport({ scale: scaleFactor * scale })
 
+      // Canvas Layer
+      const canvas = document.createElement('canvas')
+      const context = canvas.getContext('2d')
       canvas.height = scaledViewport.height
       canvas.width = scaledViewport.width
 
+      // Create a wrapper div for both canvas and text layer
+      const wrapper = document.createElement('div')
+      wrapper.className = 'relative'
+      wrapper.style.height = `${scaledViewport.height}px`
+      wrapper.style.width = `${scaledViewport.width}px`
+      wrapper.appendChild(canvas)
+
+      // Create text layer div
+      const textLayerDiv = document.createElement('div')
+      textLayerDiv.className = 'absolute top-0 left-0 text-layer'
+      wrapper.appendChild(textLayerDiv)
+
+      // Render canvas layer
       await page.render({
         canvasContext: context!,
         viewport: scaledViewport
       }).promise
 
-      setPageCanvas(canvas)
+      // Get text content
+      const textContent = await page.getTextContent()
+
+      // Render text layer
+      pdfjsLib.renderTextLayer({
+        textContent,
+        container: textLayerDiv,
+        viewport: scaledViewport,
+        textDivs: []
+      })
+
+      setPageCanvas(wrapper)
     } catch (error) {
       console.error('Error rendering page:', error)
     }
@@ -147,23 +170,32 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
     if (!selection || !selection.toString()) return
 
     const range = selection.getRangeAt(0)
-    const rect = range.getBoundingClientRect()
+    const rects = range.getClientRects()
+
+    // Get the container's position for offset calculation
+    const container = containerRef.current?.getBoundingClientRect()
+    if (!container) return
+
+    // Use the first rect for position
+    const firstRect = rects[0]
 
     const highlight: Highlight = {
       id: Date.now().toString(),
       pageNumber: currentPage,
       content: selection.toString(),
       position: {
-        x: rect.x,
-        y: rect.y,
-        width: rect.width,
-        height: rect.height
+        x: firstRect.x - container.x,
+        y: firstRect.y - container.y,
+        width: firstRect.width,
+        height: firstRect.height
       },
       color: '#ffeb3b'
     }
 
     setHighlights((prev) => [...prev, highlight])
-    selection.removeAllRanges()
+
+    // Don't clear the selection if we want it to remain visible
+    // selection.removeAllRanges()
   }
 
   const handleAddAnnotation = (event: React.MouseEvent) => {
@@ -259,10 +291,14 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
           <div className="flex justify-center">
             {pageCanvas && (
               <div className="relative">
-                <img
-                  src={pageCanvas.toDataURL()}
-                  alt={`Page ${currentPage}`}
-                  className="max-w-full shadow-lg"
+                <div
+                  ref={(element) => {
+                    if (element && pageCanvas) {
+                      element.innerHTML = ''
+                      element.appendChild(pageCanvas)
+                    }
+                  }}
+                  className="relative"
                 />
 
                 {/* Render highlights */}
