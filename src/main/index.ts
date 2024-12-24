@@ -1,10 +1,28 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, protocol } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import fs from 'fs'
+
+// Add this function to create PDF windows
+function createPDFWindow(pdfPath: string): void {
+  const pdfWindow = new BrowserWindow({
+    width: 1024,
+    height: 768,
+    webPreferences: {
+      plugins: true
+    }
+  })
+
+  pdfWindow.loadURL(`file://${pdfPath}`)
+}
+
+// Add this IPC handler
+ipcMain.handle('open-pdf', async (_, pdfPath) => {
+  createPDFWindow(pdfPath)
+})
 
 function createWindow(): void {
-  // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
@@ -13,7 +31,18 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      webSecurity: true
+    }
+  })
+
+  // Register custom protocol
+  protocol.registerFileProtocol('pagepal-pdf', (request, callback) => {
+    const filePath = decodeURIComponent(request.url.replace('pagepal-pdf://', ''))
+    try {
+      callback({ path: filePath })
+    } catch (error) {
+      console.error('Protocol error:', error)
     }
   })
 
@@ -33,12 +62,43 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  // IPC test
+  ipcMain.on('ping', () => console.log('pong'))
+
+  ipcMain.handle('select-pdf', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
+    })
+    return result
+  })
+
+  ipcMain.handle('read-pdf', async (_, path) => {
+    try {
+      const buffer = await fs.promises.readFile(path)
+      return buffer
+    } catch (error) {
+      console.error('Error reading PDF:', error)
+      throw error
+    }
+  })
 }
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  // Register protocol
+  protocol.registerFileProtocol('pagepal-pdf', (request, callback) => {
+    const filePath = decodeURIComponent(request.url.replace('pagepal-pdf://', ''))
+    try {
+      callback({ path: filePath })
+    } catch (error) {
+      console.error('Protocol error:', error)
+    }
+  })
+
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
 
