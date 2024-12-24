@@ -6,6 +6,7 @@ declare global {
       ipcRenderer: {
         invoke(channel: 'select-pdf'): Promise<{ canceled: boolean; filePaths: string[] }>
         invoke(channel: 'get-ollama-models'): Promise<string[]>
+        invoke(channel: 'clear-document-context'): Promise<void>
         invoke(
           channel: 'chat-with-ollama',
           data: {

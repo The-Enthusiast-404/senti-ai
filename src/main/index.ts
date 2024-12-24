@@ -3,7 +3,9 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import fs from 'fs'
-import { spawn } from 'child_process'
+import { DocumentProcessor } from './services/DocumentProcessor'
+
+const documentProcessor = new DocumentProcessor()
 
 // Add this function to create PDF windows
 function createPDFWindow(pdfPath: string): void {
@@ -26,7 +28,7 @@ ipcMain.handle('open-pdf', async (_, pdfPath) => {
 // Add this new IPC handler to get available models
 ipcMain.handle('get-ollama-models', async () => {
   try {
-    const fetch = (await import('node-fetch')).default
+    const { default: fetch } = await import('node-fetch')
     const response = await fetch('http://localhost:11434/api/tags')
     if (!response.ok) {
       throw new Error(`Ollama API error: ${response.statusText}`)
@@ -45,8 +47,19 @@ ipcMain.handle(
   'chat-with-ollama',
   async (_, data: { message: string; context: string; pageNumber: number; model: string }) => {
     try {
-      const fetch = (await import('node-fetch')).default
-      const prompt = `You are a helpful AI assistant analyzing a PDF document. You are currently looking at page ${data.pageNumber}. Here is the context from the current page:\n\n${data.context}\n\nUser question: ${data.message}`
+      // Dynamic import of node-fetch
+      const { default: fetch } = await import('node-fetch')
+
+      // Process the page content if not already processed
+      await documentProcessor.processPage(data.pageNumber, data.context)
+
+      // Get relevant context for the query
+      const relevantContext = await documentProcessor.getRelevantContext(
+        data.pageNumber,
+        data.message
+      )
+
+      const prompt = `You are a helpful AI assistant analyzing a PDF document. You are currently looking at page ${data.pageNumber}. Here is the relevant context from the document:\n\n${relevantContext}\n\nUser question: ${data.message}`
 
       const response = await fetch('http://localhost:11434/api/chat', {
         method: 'POST',
@@ -77,6 +90,11 @@ ipcMain.handle(
     }
   }
 )
+
+// Add a handler to clear document processor when closing PDF
+ipcMain.handle('clear-document-context', async () => {
+  documentProcessor.clear()
+})
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({

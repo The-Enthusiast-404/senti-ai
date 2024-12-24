@@ -187,11 +187,19 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
     setAnnotations((prev) => [...prev, annotation])
   }
 
+  const handleClose = async () => {
+    await window.electron.ipcRenderer.invoke('clear-document-context')
+    onClose()
+  }
+
   return (
     <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col">
       <div className="bg-gray-800 p-4 flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <button onClick={onClose} className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
+          <button
+            onClick={handleClose}
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+          >
             <XMarkIcon className="w-6 h-6" />
           </button>
 
