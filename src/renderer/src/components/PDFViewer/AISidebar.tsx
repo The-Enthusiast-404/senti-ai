@@ -1,5 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
-import { PaperAirplaneIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
+import {
+  ChevronDownIcon,
+  DocumentTextIcon,
+  AcademicCapIcon,
+  QuestionMarkCircleIcon,
+  LightBulbIcon,
+  PencilIcon
+} from '@heroicons/react/24/outline'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -11,9 +18,48 @@ interface AISidebarProps {
   pageContent?: string
 }
 
+interface ActionButton {
+  id: string
+  label: string
+  prompt: string
+  icon: JSX.Element
+}
+
+const actionButtons: ActionButton[] = [
+  {
+    id: 'summarize-page',
+    label: 'Summarize Page',
+    prompt: 'Please provide a concise summary of this page in 3-4 key points.',
+    icon: <DocumentTextIcon className="w-5 h-5" />
+  },
+  {
+    id: 'explain-page',
+    label: 'Explain Content',
+    prompt: 'Please explain the main concepts on this page in simple terms.',
+    icon: <AcademicCapIcon className="w-5 h-5" />
+  },
+  {
+    id: 'create-quiz',
+    label: 'Generate Quiz',
+    prompt: 'Create 3 quiz questions based on the content of this page, including answers.',
+    icon: <QuestionMarkCircleIcon className="w-5 h-5" />
+  },
+  {
+    id: 'key-concepts',
+    label: 'Key Concepts',
+    prompt: 'List and briefly explain the key concepts mentioned on this page.',
+    icon: <LightBulbIcon className="w-5 h-5" />
+  },
+  {
+    id: 'study-notes',
+    label: 'Create Study Notes',
+    prompt: "Generate detailed study notes from this page's content.",
+    icon: <PencilIcon className="w-5 h-5" />
+  }
+]
+
 export default function AISidebar({ currentPage, pageContent }: AISidebarProps) {
   const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [models, setModels] = useState<string[]>([])
   const [selectedModel, setSelectedModel] = useState<string>('')
@@ -29,7 +75,6 @@ export default function AISidebar({ currentPage, pageContent }: AISidebarProps) 
   }, [messages])
 
   useEffect(() => {
-    // Fetch available models when component mounts
     const fetchModels = async () => {
       try {
         const availableModels = await window.electron.ipcRenderer.invoke('get-ollama-models')
@@ -44,22 +89,20 @@ export default function AISidebar({ currentPage, pageContent }: AISidebarProps) 
     fetchModels()
   }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim() || isLoading || !selectedModel) return
+  const handleActionClick = async (action: ActionButton) => {
+    if (isLoading || !selectedModel) return
 
     const userMessage = {
       role: 'user' as const,
-      content: input
+      content: action.prompt
     }
 
     setMessages((prev) => [...prev, userMessage])
-    setInput('')
     setIsLoading(true)
 
     try {
       const response = await window.electron.ipcRenderer.invoke('chat-with-ollama', {
-        message: input,
+        message: action.prompt,
         context: pageContent || '',
         pageNumber: currentPage,
         model: selectedModel
@@ -93,21 +136,37 @@ export default function AISidebar({ currentPage, pageContent }: AISidebarProps) 
           </button>
           {isModelDropdownOpen && (
             <div className="absolute w-full mt-1 bg-gray-700 rounded-lg shadow-lg z-50">
-              {Array.isArray(models) &&
-                models.map((modelName: string) => (
-                  <button
-                    key={modelName}
-                    onClick={() => {
-                      setSelectedModel(modelName)
-                      setIsModelDropdownOpen(false)
-                    }}
-                    className="w-full px-3 py-2 text-left hover:bg-gray-600 first:rounded-t-lg last:rounded-b-lg text-sm"
-                  >
-                    {modelName}
-                  </button>
-                ))}
+              {models.map((modelName) => (
+                <button
+                  key={modelName}
+                  onClick={() => {
+                    setSelectedModel(modelName)
+                    setIsModelDropdownOpen(false)
+                  }}
+                  className="w-full px-3 py-2 text-left hover:bg-gray-600 first:rounded-t-lg last:rounded-b-lg text-sm"
+                >
+                  {modelName}
+                </button>
+              ))}
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="p-4 border-b border-gray-700">
+        <div className="grid grid-cols-1 gap-2">
+          {actionButtons.map((action) => (
+            <button
+              key={action.id}
+              onClick={() => handleActionClick(action)}
+              disabled={isLoading || !selectedModel}
+              className="flex items-center gap-2 w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 
+                       disabled:opacity-50 disabled:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              {action.icon}
+              <span className="text-sm">{action.label}</span>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -130,26 +189,6 @@ export default function AISidebar({ currentPage, pageContent }: AISidebarProps) 
         )}
         <div ref={messagesEndRef} />
       </div>
-
-      <form onSubmit={handleSubmit} className="p-4 border-t border-gray-700">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about this page..."
-            className="flex-1 bg-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-            disabled={!selectedModel}
-          />
-          <button
-            type="submit"
-            disabled={isLoading || !selectedModel}
-            className="p-2 bg-primary hover:bg-primary-dark rounded-lg transition-colors disabled:opacity-50"
-          >
-            <PaperAirplaneIcon className="w-5 h-5" />
-          </button>
-        </div>
-      </form>
     </div>
   )
 }
