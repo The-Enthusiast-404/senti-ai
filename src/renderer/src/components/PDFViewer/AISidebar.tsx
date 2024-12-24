@@ -8,7 +8,8 @@ import {
   PencilIcon,
   BookOpenIcon,
   DocumentDuplicateIcon,
-  ClipboardDocumentListIcon
+  ClipboardDocumentListIcon,
+  ArrowsPointingOutIcon
 } from '@heroicons/react/24/outline'
 
 interface Message {
@@ -101,6 +102,43 @@ const chapterActionButtons: ActionButton[] = [
   }
 ]
 
+const bookActionButtons: ActionButton[] = [
+  {
+    id: 'book-overview',
+    label: 'Book Overview',
+    prompt:
+      'Provide a comprehensive overview of the entire book, including main themes and key takeaways.',
+    icon: <BookOpenIcon className="w-5 h-5" />
+  },
+  {
+    id: 'book-themes',
+    label: 'Major Themes',
+    prompt: 'Analyze and explain the major themes and concepts that run throughout the book.',
+    icon: <LightBulbIcon className="w-5 h-5" />
+  },
+  {
+    id: 'chapter-relationships',
+    label: 'Chapter Relationships',
+    prompt:
+      'Explain how different chapters relate to each other and how concepts evolve throughout the book.',
+    icon: <ArrowsPointingOutIcon className="w-5 h-5" />
+  },
+  {
+    id: 'book-summary',
+    label: 'Executive Summary',
+    prompt:
+      'Create an executive summary of the entire book, highlighting the most important points from each chapter.',
+    icon: <DocumentTextIcon className="w-5 h-5" />
+  },
+  {
+    id: 'study-plan',
+    label: 'Study Plan',
+    prompt:
+      'Create a comprehensive study plan for mastering the content of this book, including chapter dependencies and key focus areas.',
+    icon: <AcademicCapIcon className="w-5 h-5" />
+  }
+]
+
 export default function AISidebar({ currentPage, pageContent, currentChapter }: AISidebarProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -108,7 +146,7 @@ export default function AISidebar({ currentPage, pageContent, currentChapter }: 
   const [selectedModel, setSelectedModel] = useState<string>('')
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const [activeTab, setActiveTab] = useState<'page' | 'chapter'>('page')
+  const [activeTab, setActiveTab] = useState<'page' | 'chapter' | 'book'>('page')
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -150,7 +188,8 @@ export default function AISidebar({ currentPage, pageContent, currentChapter }: 
         context: pageContent || '',
         pageNumber: currentPage,
         model: selectedModel,
-        isChapterAction: activeTab === 'chapter'
+        isChapterAction: activeTab === 'chapter',
+        isBookAction: activeTab === 'book'
       })
 
       setMessages((prev) => [
@@ -219,7 +258,15 @@ export default function AISidebar({ currentPage, pageContent, currentChapter }: 
           disabled={!currentChapter}
           title={!currentChapter ? 'No chapter detected for current page' : ''}
         >
-          Chapter Actions {!currentChapter && '(No Chapter)'}
+          Chapter Actions
+        </button>
+        <button
+          onClick={() => setActiveTab('book')}
+          className={`flex-1 p-2 text-sm font-medium ${
+            activeTab === 'book' ? 'border-b-2 border-blue-500' : ''
+          } hover:bg-gray-700/50 transition-colors`}
+        >
+          Book Actions
         </button>
       </div>
 
@@ -237,7 +284,7 @@ export default function AISidebar({ currentPage, pageContent, currentChapter }: 
               <span className="text-sm">{action.label}</span>
             </button>
           ))
-        ) : (
+        ) : activeTab === 'chapter' ? (
           <>
             {currentChapter && (
               <div className="mb-4 p-2 bg-gray-700 rounded-lg">
@@ -261,6 +308,19 @@ export default function AISidebar({ currentPage, pageContent, currentChapter }: 
               </button>
             ))}
           </>
+        ) : (
+          bookActionButtons.map((action) => (
+            <button
+              key={action.id}
+              onClick={() => handleActionClick(action)}
+              disabled={isLoading || !selectedModel}
+              className="flex items-center gap-2 w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 
+                       disabled:opacity-50 disabled:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              {action.icon}
+              <span className="text-sm">{action.label}</span>
+            </button>
+          ))
         )}
       </div>
 

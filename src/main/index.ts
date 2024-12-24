@@ -53,24 +53,24 @@ ipcMain.handle(
       pageNumber: number
       model: string
       isChapterAction: boolean
+      isBookAction: boolean
     }
   ) => {
     try {
-      // Dynamic import of node-fetch
       const { default: fetch } = await import('node-fetch')
-
-      // Process the page content if not already processed
       await documentProcessor.processPage(data.pageNumber, data.context)
 
-      // Get relevant context for the query
       const relevantContext = await documentProcessor.getRelevantContext(
         data.pageNumber,
-        data.message
+        data.message,
+        data.isBookAction
       )
 
-      const prompt = data.isChapterAction
-        ? `You are a helpful AI assistant analyzing a book chapter. You are currently looking at chapter content. Here is the relevant context from the chapter:\n\n${relevantContext}\n\nUser question: ${data.message}`
-        : `You are a helpful AI assistant analyzing a PDF document. You are currently looking at page ${data.pageNumber}. Here is the relevant context from the document:\n\n${relevantContext}\n\nUser question: ${data.message}`
+      const prompt = data.isBookAction
+        ? `You are a helpful AI assistant analyzing an entire book. Here is the relevant context from the book:\n\n${relevantContext}\n\nUser question: ${data.message}`
+        : data.isChapterAction
+          ? `You are a helpful AI assistant analyzing a book chapter. Here is the relevant context from the chapter:\n\n${relevantContext}\n\nUser question: ${data.message}`
+          : `You are a helpful AI assistant analyzing a PDF document. You are currently looking at page ${data.pageNumber}. Here is the relevant context:\n\n${relevantContext}\n\nUser question: ${data.message}`
 
       const response = await fetch('http://localhost:11434/api/chat', {
         method: 'POST',

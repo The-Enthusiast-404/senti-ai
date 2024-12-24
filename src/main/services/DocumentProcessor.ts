@@ -3,18 +3,21 @@ import { MemoryVectorStore } from 'langchain/vectorstores/memory'
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
 import { OllamaEmbeddings } from './OllamaEmbeddings'
 import { ChapterProcessor } from './ChapterProcessor'
+import { BookProcessor } from './BookProcessor'
 
 export class DocumentProcessor {
   private vectorStore: MemoryVectorStore | null = null
   private pageContexts: Map<number, string> = new Map()
   private embeddings: OllamaEmbeddings
   private chapterProcessor: ChapterProcessor
+  private bookProcessor: BookProcessor
 
   constructor() {
     this.embeddings = new OllamaEmbeddings({
-      model: 'nomic-embed-text' // or any other model you prefer
+      model: 'nomic-embed-text'
     })
     this.chapterProcessor = new ChapterProcessor()
+    this.bookProcessor = new BookProcessor()
   }
 
   async processPage(pageNumber: number, content: string): Promise<void> {
@@ -50,18 +53,24 @@ export class DocumentProcessor {
     return filteredDocs.map((doc) => doc.pageContent).join('\n\n')
   }
 
-  async getRelevantContext(pageNumber: number, query: string): Promise<string> {
+  async getRelevantContext(
+    pageNumber: number,
+    query: string,
+    isBookAction?: boolean
+  ): Promise<string> {
     if (!this.vectorStore) {
       return this.pageContexts.get(pageNumber) || ''
     }
 
-    // Get both page and chapter context
+    if (isBookAction) {
+      return this.bookProcessor.getBookContext(query)
+    }
+
     const [pageContext, chapterContext] = await Promise.all([
       this.getPageContext(pageNumber, query),
       this.chapterProcessor.getChapterContext(query, pageNumber)
     ])
 
-    // Combine contexts with clear separation
     return `Page Context:\n${pageContext}\n\nChapter Context:\n${chapterContext}`
   }
 
@@ -72,12 +81,24 @@ export class DocumentProcessor {
       .join('\n\n')
 
     await this.chapterProcessor.addChapter(title, startPage, endPage, chapterContent)
+
+    // Update book processor with new chapter info
+    await this.bookProcessor.updateBookMetadata({
+      title: 'Book Title', // You might want to store this somewhere
+      totalPages: Math.max(...Array.from(this.pageContexts.keys())),
+      chapters: Array.from(this.chapterProcessor.getChapters().values()).map((chapter) => ({
+        title: chapter.title,
+        startPage: chapter.startPage,
+        endPage: chapter.endPage
+      }))
+    })
   }
 
   clear(): void {
     this.vectorStore = null
     this.pageContexts.clear()
     this.chapterProcessor.clear()
+    this.bookProcessor.clear()
   }
 
   getChapterForPage(pageNumber: number) {

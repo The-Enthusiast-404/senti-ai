@@ -221,4 +221,8 @@ export class ChapterProcessor {
     this.vectorStore = null
     this.chapters.clear()
   }
+
+  getChapters(): Map<string, Chapter> {
+    return this.chapters
+  }
 }
