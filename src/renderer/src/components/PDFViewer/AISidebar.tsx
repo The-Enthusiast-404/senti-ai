@@ -12,6 +12,12 @@ import {
   ArrowsPointingOutIcon,
   PaperAirplaneIcon
 } from '@heroicons/react/24/outline'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
+import rehypeSanitize from 'rehype-sanitize'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -373,7 +379,33 @@ export default function AISidebar({ currentPage, pageContent, currentChapter }: 
             <div className="text-xs font-medium mb-1">
               {message.role === 'user' ? 'You' : 'Assistant'}
             </div>
-            <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+            <div className="text-sm prose prose-invert max-w-none">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw, rehypeSanitize]}
+                components={{
+                  code({ node, inline, className, children, ...props }) {
+                    const match = /language-(\w+)/.exec(className || '')
+                    return !inline && match ? (
+                      <SyntaxHighlighter
+                        {...props}
+                        style={oneDark}
+                        language={match[1]}
+                        PreTag="div"
+                      >
+                        {String(children).replace(/\n$/, '')}
+                      </SyntaxHighlighter>
+                    ) : (
+                      <code {...props} className={className}>
+                        {children}
+                      </code>
+                    )
+                  }
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
+            </div>
           </div>
         ))}
         <div ref={messagesEndRef} />
