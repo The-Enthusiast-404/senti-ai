@@ -43,8 +43,6 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
   const [pageCanvas, setPageCanvas] = useState<HTMLCanvasElement | null>(null)
   const [outline, setOutline] = useState<pdfjsLib.PDFOutline[]>([])
   const [annotations, setAnnotations] = useState<Annotation[]>([])
-  const [highlights, setHighlights] = useState<Highlight[]>([])
-  const [isSelecting, setIsSelecting] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const handlePageChange = async (newPage: number) => {
@@ -112,7 +110,7 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
       canvas.height = scaledViewport.height
       canvas.width = scaledViewport.width
 
-      // Create a wrapper div for both canvas and text layer
+      // Create a wrapper div
       const wrapper = document.createElement('div')
       wrapper.className = 'relative'
       wrapper.style.height = `${scaledViewport.height}px`
@@ -122,6 +120,8 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
       // Create text layer div
       const textLayerDiv = document.createElement('div')
       textLayerDiv.className = 'absolute top-0 left-0 text-layer'
+      textLayerDiv.style.width = `${scaledViewport.width}px`
+      textLayerDiv.style.height = `${scaledViewport.height}px`
       wrapper.appendChild(textLayerDiv)
 
       // Render canvas layer
@@ -130,10 +130,8 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
         viewport: scaledViewport
       }).promise
 
-      // Get text content
+      // Get text content and render text layer
       const textContent = await page.getTextContent()
-
-      // Render text layer
       pdfjsLib.renderTextLayer({
         textContent,
         container: textLayerDiv,
@@ -161,41 +159,6 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
     if (pdfDocument) {
       renderPage(pdfDocument, currentPage)
     }
-  }
-
-  const handleTextSelection = () => {
-    if (!isSelecting) return
-
-    const selection = window.getSelection()
-    if (!selection || !selection.toString()) return
-
-    const range = selection.getRangeAt(0)
-    const rects = range.getClientRects()
-
-    // Get the container's position for offset calculation
-    const container = containerRef.current?.getBoundingClientRect()
-    if (!container) return
-
-    // Use the first rect for position
-    const firstRect = rects[0]
-
-    const highlight: Highlight = {
-      id: Date.now().toString(),
-      pageNumber: currentPage,
-      content: selection.toString(),
-      position: {
-        x: firstRect.x - container.x,
-        y: firstRect.y - container.y,
-        width: firstRect.width,
-        height: firstRect.height
-      },
-      color: '#ffeb3b'
-    }
-
-    setHighlights((prev) => [...prev, highlight])
-
-    // Don't clear the selection if we want it to remain visible
-    // selection.removeAllRanges()
   }
 
   const handleAddAnnotation = (event: React.MouseEvent) => {
@@ -265,14 +228,6 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
 
         <div className="flex items-center gap-4">
           <button
-            onClick={() => setIsSelecting(!isSelecting)}
-            className={`px-4 py-2 rounded-lg ${
-              isSelecting ? 'bg-primary text-white' : 'bg-gray-700 hover:bg-gray-600'
-            }`}
-          >
-            Highlight Mode
-          </button>
-          <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
           >
@@ -282,12 +237,7 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        <div
-          ref={containerRef}
-          className="flex-1 p-4 overflow-auto bg-gray-800"
-          onClick={handleAddAnnotation}
-          onMouseUp={handleTextSelection}
-        >
+        <div ref={containerRef} className="flex-1 p-4 overflow-auto bg-gray-800">
           <div className="flex justify-center">
             {pageCanvas && (
               <div className="relative">
@@ -300,25 +250,6 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
                   }}
                   className="relative"
                 />
-
-                {/* Render highlights */}
-                {highlights
-                  .filter((h) => h.pageNumber === currentPage)
-                  .map((highlight) => (
-                    <div
-                      key={highlight.id}
-                      style={{
-                        position: 'absolute',
-                        left: highlight.position.x,
-                        top: highlight.position.y,
-                        width: highlight.position.width,
-                        height: highlight.position.height,
-                        backgroundColor: highlight.color,
-                        opacity: 0.3,
-                        pointerEvents: 'none'
-                      }}
-                    />
-                  ))}
 
                 {/* Render annotations */}
                 {annotations
@@ -345,7 +276,6 @@ export default function PDFViewer({ pdfPath, onClose }: PDFViewerProps): JSX.Ele
             outline={outline}
             onJumpToPage={(page) => handlePageChange(page)}
             annotations={annotations}
-            highlights={highlights}
           />
         )}
       </div>
